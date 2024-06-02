@@ -53,9 +53,10 @@ def getSizeInPixels(realLifeSize, distance):
     b = 34
     return int(np.rint((a * distance + b) * realLifeSize))
 
-def showImages(images: List[np.ndarray]) -> None:
+def showImages(images: List[np.ndarray], title='') -> None:
     n: int = len(images)
     f = plt.figure()
+    f.suptitle(title)
     for i in range(n):
         # Debug, plot figure
         f.add_subplot(1, n, i + 1)

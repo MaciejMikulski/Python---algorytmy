@@ -191,11 +191,14 @@ def blobRadiusAlg(img, distance, markerType=1):
     rot : float
         Rotation of the marker.
     """
+    x: int = 255
+    y: int = 0
+    rot = 0.0
 
     # Threshold the image
-    # binary = thresholdMaxValOffset(img, 80)
-    thres = threshold_mean(img)
-    binary = img > thres
+    binary = thresholdMaxValOffset(img, 65)
+    #thres = threshold_mean(img)
+    #binary = img > thres
 
     # Label all blobs on the image ang get their parameters
     labelIm, blobNum = label(binary, background=0, connectivity=1, return_num=True)
@@ -209,27 +212,31 @@ def blobRadiusAlg(img, distance, markerType=1):
     blobArea = np.array(area)
     blobBoundBox = np.array(boundingBox)
 
+    # If threre are less than 3 blobs left, marker crertainly not detectable, exit
+    #if len(blobArea < 4):
+    #    return x, y, rot
+    
     # Expected area in pixels of one square of the marker (blob)
     expectedArea = getSizeInPixels(1.0, distance) ** 2
 
     # Remove blobs that are too small or too big
-    delBlobsIm, blobArea, blobBoundBox = removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedArea, 0.5, 1.5)
+    delBlobsIm, blobArea, blobBoundBox = removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedArea, 0.3, 1.7)
+    blobAngles = []
+    if len(blobArea) >= 4:
+        # Find coordinates of blob centers
+        blobCenters = getBlobCenterCoords(blobBoundBox)
+        # And append them to an image
+        blobCentersIm = np.copy(delBlobsIm)
+        for i in range(len(blobCenters)):
+            x = (int)(blobCenters[i, 0])
+            y = (int)(blobCenters[i, 1])
+            blobCentersIm[x, y] = 100.0
 
-    # Find coordinates of blob centers
-    blobCenters = getBlobCenterCoords(blobBoundBox)
-    # And append them to an image
-    blobCentersIm = np.copy(delBlobsIm)
-    for i in range(len(blobCenters)):
-        x = (int)(blobCenters[i, 0])
-        y = (int)(blobCenters[i, 1])
-        blobCentersIm[x, y] = 100.0
+        # Find all non-duplicate angles between found blob centers
+        blobAngles = getBlobAngles(blobCenters, mode='Closest')
 
-    # Find all non-duplicate angles between found blob centers
-    #blobAngles = getBlobAngles(blobCenters, mode='Closest')
-
-
-    showImages([img, labelIm, delBlobsIm, blobCentersIm])
-    x = 0
-    y = 0
-    rot = 0.0
-    return x, y, rot
+        #showImages([img, labelIm, delBlobsIm, blobCentersIm], str(len(blobArea)))
+    #else:
+        #showImages([img, labelIm, delBlobsIm], str(len(blobArea)))
+    
+    return x, y, rot, len(blobArea), blobAngles
