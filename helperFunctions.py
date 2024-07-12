@@ -8,16 +8,35 @@ from skimage.io import imread, imshow
 import matplotlib.pyplot as plt
 
 
+def listSubdirectoriesRecursively(base_path):
+    subdirectories = []
+    for root, dirs, files in os.walk(base_path):
+        for dir_name in dirs:
+            subdirectories.append(os.path.join(root, dir_name))
+    return subdirectories
+
 def getImages(path, imType='png'):
-    imPaths = glob.glob(os.path.join(path, '*.'+str(imType)))
+    # Get all subdirectories which contain images
+    subdirectories = listSubdirectoriesRecursively(path)
 
     images = []
-    for i in range(len(imPaths)):
-        images.append(imread(imPaths[i]))
-
     imLabels = []
-    for i in range(len(imPaths)):
-        imLabels.append((re.findall("[0-9]-[0-9]-[0-9]", imPaths[i]))[0])
+    for j in range(len(subdirectories)):
+        print('.', end="")
+        # Get paths of all images in current subdirectory
+        imPaths = glob.glob(os.path.join(subdirectories[j], '*.'+str(imType)))
+        # Read all images
+        for i in range(len(imPaths)):
+            images.append(imread(imPaths[i]))
+
+        # Parse all labels
+        for i in range(len(imPaths)):
+            findsShort = re.findall("[0-9]-[0-9]-[0-9]", imPaths[i])
+            findsLong = re.findall("[0-9]-[0-9][0-9]-[0-9]", imPaths[i])
+            if len(findsShort) == 0:
+                imLabels.append(findsLong[0])
+            else:
+                imLabels.append(findsShort[0])
 
     return imLabels, np.array(images), imPaths
 

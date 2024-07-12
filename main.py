@@ -7,69 +7,27 @@ from skimage.io import imshow
 from skimage import exposure
 from skimage.filters import try_all_threshold
 
+usedMarkerType = "A"
 
 # Path to images folder
-path = "Zdjecia/Testowy_marker"
-# Get all image names
-labels, images, paths = getImages(path)
-# Parse image names
+pathA = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_A')
+pathB = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_B')
+
+if usedMarkerType == "A":
+    labels, images, paths = getImages(pathA)
+elif usedMarkerType == "B":
+    labels, images, paths = getImages(pathB)
+else:
+    raise Exception("Wrong marker type.")
+
+# Parse image labels
 markerTypes, distances = parseLabels(labels)
 
-maciekMarkerLabels = []
-olgierdMarkerLabels = []
-noMarkerLabels = []
-maciekMarkerAngles = []
-olgierdMarkerAngles = []
-for N in range(0, len(paths)):
-    distN = distances[N]
-    labelN = labels[N]
-    markerTypeN = markerTypes[N]
-    x, y, rot, blobNum, angles = blobRadiusAlg(images[N], distN)
+print(images.shape)
+print(markerTypes.shape)
+print(distances.shape)
 
-    if blobNum >= 4:
-        if markerTypeN == 1:
-            maciekMarkerLabels.append(labelN)
-            maciekMarkerAngles.append(angles)
-        elif markerTypeN == 2:
-            olgierdMarkerLabels.append(labelN)
-            olgierdMarkerAngles.append(angles)
-    else:
-        noMarkerLabels.append(labelN)
-
-    # while True:
-    #     resp = str(input())
-    #     print('Resp: ', resp)
-    #     if resp == 'y':
-    #         if markerTypeN == 1:
-    #             maciekMarkerLabels.append(labelN)
-    #         elif markerTypeN == 2:
-    #             olgierdMarkerLabels.append(labelN)
-    #         break
-    #     elif resp == 'n':
-    #         noMarkerLabels.append(labelN)
-    #         break
-    #     else:
-    #         print('Invalid response')
-
-maciekMarkerAngles = np.around(np.array(maciekMarkerAngles)/5, decimals=0)*5
-olgierdMarkerAngles = np.around(np.array(olgierdMarkerAngles)/5, decimals=0)*5
-
-maciekMarkerAngles.sort(axis=1)
-olgierdMarkerAngles.sort(axis=1)
-print(maciekMarkerAngles)
-print(olgierdMarkerAngles)
-
-#print(maciekMarkerLabels)
-#print(olgierdMarkerLabels)
-#print(noMarkerLabels)
-    #fig, ax = try_all_threshold(logarithmic_corrected, figsize=(10, 8), verbose=False)
-    #plt.show()
-
-#N = 40
-#distN = distances[N]
-#labelN = labels[N]
-#logarithmic_corrected = exposure.adjust_log(images[N], 2)
-
+blobRadiusAlg(images[N], distN)
 #blobRadiusAlg(logarithmic_corrected, distN)
 #binary = thresholdMaxValOffset(images[N], 80)
 #showImages([images[N], binary])
