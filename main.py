@@ -7,6 +7,14 @@ from skimage.io import imshow
 from skimage import exposure
 from skimage.filters import try_all_threshold
 
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+
+from skimage import data, img_as_float
+from skimage import exposure
+
 usedMarkerType = "A"
 
 # Path to images folder
@@ -19,6 +27,10 @@ elif usedMarkerType == "B":
     labels, images, paths = getImages(pathB)
 else:
     raise Exception("Wrong marker type.")
+
+img = thresholdHistogramMaxOffset(images[360,:,:], 160)
+showImages([img])
+
 
 # Parse image labels
 markerTypes, distances = parseLabels(labels)

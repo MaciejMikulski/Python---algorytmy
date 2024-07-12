@@ -7,6 +7,88 @@ from helperFunctions import *
 from threshold import *
 
 class blobRadiusAlg:
+
+
+    def blobAlgorithm(self, img, distance, markerType=1):
+        """
+        This function performs marker detection algorithm based on
+        blob detection and search of other squares in a radius around
+        another.
+
+        Parameters
+        ----------
+        img : ndarray
+            Gray-scale image to be processed.
+        distance : float
+            Approximate distance form the camera to the marker.
+        markerType : int
+            Describes type of marker to be detected.
+                1 - marker A (Olgierd's marker)
+                2 - marker B (Maciej's marker)
+
+        Returns
+        ----------
+        x : int
+            Position of the marker in x axis. Set to 255 if no marker 
+            is detected.
+        y : int
+            Posiion of the market in y axis.
+        rot : float
+            Rotation of the marker.
+        """
+        x: int = 255
+        y: int = 0
+        rot = 0.0
+
+        ####################################### THRESHOLDING ############################################
+        binary = thresholdHistogramMaxOffset(img, 20)
+        #binary = thresholdMaxValOffset(img, 65)
+        #thres = threshold_mean(img)
+        #binary = img > thres
+
+        ############################### CONNECTED COMPONENT LABELING ########################################
+        # Label all blobs on the image ang get their parameters
+        labelIm, blobNum = label(binary, background=0, connectivity=1, return_num=True)
+        blobProperties = regionprops(labelIm)
+        # Get area and bounding box of all the blobs
+        area = []
+        boundingBox = []
+        for i in range(blobNum):
+            area.append(blobProperties[i].area)
+            boundingBox.append(blobProperties[i].bbox)
+        blobArea = np.array(area)
+        blobBoundBox = np.array(boundingBox)
+
+        # If threre are less than 3 blobs left, marker crertainly not detectable, exit
+        if len(blobArea < 4):
+            return x, y, rot
+        
+        ########################################## AREA FILTRATION #################################################
+        # Expected area in pixels of one square of the marker (blob)
+        expectedArea = getSizeInPixels(1.0, distance) ** 2
+
+        # Remove blobs that are too small or too big
+        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedArea, 0.3, 1.7)
+
+        ################################### ANGLE CALCULATION ###############################
+        blobAngles = []
+        # Find coordinates of blob centers
+        blobCenters = self.getBlobCenterCoords(blobBoundBox)
+        # And append them to an image
+        # blobCentersIm = np.copy(delBlobsIm)
+        # for i in range(len(blobCenters)):
+        #     x = (int)(blobCenters[i, 0])
+        #     y = (int)(blobCenters[i, 1])
+        #     blobCentersIm[x, y] = 100.0
+        # Find all non-duplicate angles between found blob centers
+        blobAngles = self.getBlobAngles(blobCenters, mode='Closest')
+        #showImages([img, labelIm, delBlobsIm, blobCentersIm], str(len(blobArea)))
+        #else:
+        #showImages([img, labelIm, delBlobsIm], str(len(blobArea)))
+        
+        return x, y, rot, len(blobArea), blobAngles
+
+
     def removeBlobsArea(img, areas, bboxes, expectArea, areaLowBound, areaHighBound):
         """
         This method removes blobs on the image that have area smaller or bigger than specified.
@@ -97,7 +179,7 @@ class blobRadiusAlg:
 
         return angleDeg
 
-    def getBlobAngles(centers, mode='All'):
+    def getBlobAngles(self, centers, mode='All'):
         """
         This function calculates all angles between combinations of 3 center points.
 
@@ -113,7 +195,7 @@ class blobRadiusAlg:
         Returns:
         -----------
         angles : ndarray
-        Angled in degrees of all combination of center points, without duplications.
+        Angles in degrees of all combinations of center points, without duplications.
         With mode 'All" they are orederd by vertecies indexes: 012, 013, ... 023, 102 ect.
         With mode 'Closest' for one center point there is one angle. Angles are orederd by 
         center vertex index.
@@ -161,83 +243,6 @@ class blobRadiusAlg:
             p2y = centers[anglesIndexes[i][1], 1]
             p3x = centers[anglesIndexes[i][2], 0]
             p3y = centers[anglesIndexes[i][2], 1]
-            angles.append(calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y))
+            angles.append(self.calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y))
 
         return angles
-
-    def blobRadiusAlg(img, distance, markerType=1):
-        """
-        This function performs marker detection algorithm based on
-        blob detection and search of other squares in a radius around
-        another.
-
-        Parameters
-        ----------
-        img : ndarray
-            Gray-scale image to be processed.
-        distance : float
-            Approximate distance form the camera to the marker.
-        markerType : int
-            Describes type of marker to be detected.
-                1 - Maciej's marker
-                2 - Olgierd's marker
-
-        Returns
-        ----------
-        x : int
-            Position of the marker in x axis. Set to 255 if no marker 
-            is detected.
-        y : int
-            Posiion of the market in y axis.
-        rot : float
-            Rotation of the marker.
-        """
-        x: int = 255
-        y: int = 0
-        rot = 0.0
-
-        # Threshold the image
-        binary = thresholdMaxValOffset(img, 65)
-        #thres = threshold_mean(img)
-        #binary = img > thres
-
-        # Label all blobs on the image ang get their parameters
-        labelIm, blobNum = label(binary, background=0, connectivity=1, return_num=True)
-        blobProperties = regionprops(labelIm)
-        # Get area and bounding box of all the blobs
-        area = []
-        boundingBox = []
-        for i in range(blobNum):
-            area.append(blobProperties[i].area)
-            boundingBox.append(blobProperties[i].bbox)
-        blobArea = np.array(area)
-        blobBoundBox = np.array(boundingBox)
-
-        # If threre are less than 3 blobs left, marker crertainly not detectable, exit
-        #if len(blobArea < 4):
-        #    return x, y, rot
-        
-        # Expected area in pixels of one square of the marker (blob)
-        expectedArea = getSizeInPixels(1.0, distance) ** 2
-
-        # Remove blobs that are too small or too big
-        delBlobsIm, blobArea, blobBoundBox = removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedArea, 0.3, 1.7)
-        blobAngles = []
-        if len(blobArea) >= 4:
-            # Find coordinates of blob centers
-            blobCenters = getBlobCenterCoords(blobBoundBox)
-            # And append them to an image
-            blobCentersIm = np.copy(delBlobsIm)
-            for i in range(len(blobCenters)):
-                x = (int)(blobCenters[i, 0])
-                y = (int)(blobCenters[i, 1])
-                blobCentersIm[x, y] = 100.0
-
-            # Find all non-duplicate angles between found blob centers
-            blobAngles = getBlobAngles(blobCenters, mode='Closest')
-
-            showImages([img, labelIm, delBlobsIm, blobCentersIm], str(len(blobArea)))
-        else:
-            showImages([img, labelIm, delBlobsIm], str(len(blobArea)))
-        
-        return x, y, rot, len(blobArea), blobAngles
