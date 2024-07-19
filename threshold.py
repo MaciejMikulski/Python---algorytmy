@@ -1,13 +1,13 @@
 import numpy as np
 
 def thresholdVal(image, val, datType=np.uint8):
-    tmp = image >= val
-    return tmp.astype(datType)
+    thresholdedImage = image >= val
+    return thresholdedImage.astype(datType)
 
 def thresholdMaxValOffset(image, offset, datType=np.uint8):
     maxVal = np.amax(image)
-    tmp = image >= maxVal - offset
-    return tmp.astype(datType)
+    thresholdedImage = image >= maxVal - offset
+    return thresholdedImage.astype(datType)
 
 def thresholdHistogramMaxOffset(image, offset, datType=np.uint8):
         """
@@ -33,4 +33,37 @@ def thresholdHistogramMaxOffset(image, offset, datType=np.uint8):
         thresholdedImage = image >= np.clip(np.max(hist) + offset, 0, 255)
         return thresholdedImage.astype(datType)
 
+def thresholdCumulativeHistogramArea(image, markerArea, datType=np.uint8):
+        """
+        Calculates cumulative histogram of the image and calculates threshold
+        based on the predicted area of the marker. N brightest pixels which would 
+        create marker are set to foreground, the rest is set to background.
 
+        Parameters
+        ----------
+        imgage : ndarray
+            Gray-scale image to be processed.
+        markerArea : int
+            Predicted area of the marer on the image.
+        dataType
+            Type of image data to be returned.
+
+        Returns
+        ----------
+        Image thresholded with the use of calculated threshold value.
+        """
+        # Calculate histogram with 256 bins corresponding to all possible pixel values
+        histogram, _ = np.histogram(image, bins=255, range=(0.0, 0.0))
+        # Calculate predicted number of background pixels
+        backgroundArea = image.shape[0] * image.shape[1] - markerArea
+        cumulativeHistogram = 0
+        thresholdValue = 0
+        # Calculate threshold - number of bin in which cumulative histogram surpasses the predicted
+        # number of background pixels background 
+        for i in range(len(hist)):
+            cumulativeHistogram += histogram
+            if cumulativeHistogram > backgroundArea:
+                  thresholdValue = i
+                  break
+        thresholdedImage = image >= thresholdValue
+        return thresholdedImage.astype(datType)
