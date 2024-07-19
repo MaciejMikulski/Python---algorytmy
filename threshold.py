@@ -53,15 +53,15 @@ def thresholdCumulativeHistogramArea(image, markerArea, datType=np.uint8):
         Image thresholded with the use of calculated threshold value.
         """
         # Calculate histogram with 256 bins corresponding to all possible pixel values
-        histogram, _ = np.histogram(image, bins=255, range=(0.0, 0.0))
+        histogram, _ = np.histogram(image, bins=255, range=(0.0, 255.0))
         # Calculate predicted number of background pixels
         backgroundArea = image.shape[0] * image.shape[1] - markerArea
         cumulativeHistogram = 0
         thresholdValue = 0
         # Calculate threshold - number of bin in which cumulative histogram surpasses the predicted
         # number of background pixels background 
-        for i in range(len(hist)):
-            cumulativeHistogram += histogram
+        for i in range(len(histogram)):
+            cumulativeHistogram += histogram[i]
             if cumulativeHistogram > backgroundArea:
                   thresholdValue = i
                   break

@@ -28,8 +28,7 @@ elif usedMarkerType == "B":
 else:
     raise Exception("Wrong marker type.")
 
-img = thresholdHistogramMaxOffset(images[360,:,:], 160)
-showImages([img])
+
 
 
 # Parse image labels
@@ -39,7 +38,10 @@ print(images.shape)
 print(markerTypes.shape)
 print(distances.shape)
 
-blobRadiusAlg(images[N], distN)
+N = 800
+img = images[N,:,:]
+binary = thresholdCumulativeHistogramArea(images[N,:,:], distances[N])
+showImages([img, binary])
 #blobRadiusAlg(logarithmic_corrected, distN)
 #binary = thresholdMaxValOffset(images[N], 80)
 #showImages([images[N], binary])
