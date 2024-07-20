@@ -43,13 +43,20 @@ def getImages(path, imType='png'):
 def parseLabels(labels):
     markerType = []
     distance = []
-
+    id = []
     for i in range(len(labels)):
         tmp = labels[i]
         markerType.append(int(tmp[0:1]))
-        distance.append(float(tmp[2:3])*150.0)
+        if len(tmp) == 5:
+            distance.append(float(tmp[2:3])*150.0)
+            id.append(int(tmp[4:5]))
+        elif len(tmp) == 6:
+            distance.append(float(tmp[2:4])*15.0)
+            id.append(int(tmp[5:6]))
+        else:
+            pass    
 
-    return np.array(markerType), np.array(distance)
+    return np.array(markerType), np.array(distance), np.array(id)
 
 def getSizeInPixels(realLifeSize, distance):
     """

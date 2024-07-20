@@ -1,4 +1,19 @@
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+
+from helperFunctions import *
+
+def inspectThresholding(images, distances):
+    # Thresholding inspection
+    for i in range(0, images.shape[0], 25):
+        f = plt.figure()
+        for j in range(25):
+            expectedBlobArea = getSizeInPixels(1.0, distances[i+j]) ** 2
+            binary = thresholdCumulativeHistogramArea(images[i+j,:,:], expectedBlobArea * 2)
+            f.add_subplot(5, 5, j+1)
+            plt.imshow(binary)
+        plt.show()
 
 def thresholdVal(image, val, datType=np.uint8):
     thresholdedImage = image >= val
@@ -65,5 +80,5 @@ def thresholdCumulativeHistogramArea(image, markerArea, datType=np.uint8):
             if cumulativeHistogram > backgroundArea:
                   thresholdValue = i
                   break
-        thresholdedImage = image >= thresholdValue
+        thresholdedImage = image >= thresholdValue + 10
         return thresholdedImage.astype(datType)

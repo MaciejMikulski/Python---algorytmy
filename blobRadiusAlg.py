@@ -9,7 +9,7 @@ from threshold import *
 class blobRadiusAlg:
 
 
-    def blobAlgorithm(self, img, distance, markerType=1):
+    def blobAlgorithm(self, img, distance, mult, markerType=1):
         """
         This function performs marker detection algorithm based on
         blob detection and search of other squares in a radius around
@@ -41,10 +41,9 @@ class blobRadiusAlg:
         rot = 0.0
 
         ####################################### THRESHOLDING ############################################
-        binary = thresholdHistogramMaxOffset(img, 20)
-        #binary = thresholdMaxValOffset(img, 65)
-        #thres = threshold_mean(img)
-        #binary = img > thres
+        expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
+
+        binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * mult))
 
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters
@@ -59,16 +58,20 @@ class blobRadiusAlg:
         blobArea = np.array(area)
         blobBoundBox = np.array(boundingBox)
 
+
+
         # If threre are less than 3 blobs left, marker crertainly not detectable, exit
-        if len(blobArea < 4):
-            return x, y, rot
+        #if len(blobArea) < 4:
+        #    return x, y, rot
         
         ########################################## AREA FILTRATION #################################################
         # Expected area in pixels of one square of the marker (blob)
-        expectedArea = getSizeInPixels(1.0, distance) ** 2
+        expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
 
         # Remove blobs that are too small or too big
-        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedArea, 0.3, 1.7)
+        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedBlobArea, 0.3, 1.7)
+
+        return len(blobArea)
 
         ################################### ANGLE CALCULATION ###############################
         blobAngles = []
@@ -89,7 +92,7 @@ class blobRadiusAlg:
         return x, y, rot, len(blobArea), blobAngles
 
 
-    def removeBlobsArea(img, areas, bboxes, expectArea, areaLowBound, areaHighBound):
+    def removeBlobsArea(self, img, areas, bboxes, expectArea, areaLowBound, areaHighBound):
         """
         This method removes blobs on the image that have area smaller or bigger than specified.
         It also removes corresponding data in area an bounding box arrays.
@@ -138,7 +141,7 @@ class blobRadiusAlg:
                     deletedBlobsIm[x][y] = 0
         return deletedBlobsIm, rmAreas, rmBboxes
 
-    def getBlobCenterCoords(bboxes):
+    def getBlobCenterCoords(self, bboxes):
         """
         Returns coordinates of blobs with given bounding boxes.
 

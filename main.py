@@ -15,7 +15,7 @@ import numpy as np
 from skimage import data, img_as_float
 from skimage import exposure
 
-usedMarkerType = "A"
+usedMarkerType = "B"
 
 # Path to images folder
 pathA = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_A')
@@ -28,20 +28,35 @@ elif usedMarkerType == "B":
 else:
     raise Exception("Wrong marker type.")
 
-
-
-
+# maximum image IDs that contain valid markers
+#          Distances: 2          25         3          35         4          45         5          55
+markerPresentIndex = {300.0: 40, 375.0: 80, 450.0: 79, 525.0: 80, 600.0: 80, 675.0: 80, 750.0: 80, 825.0: 80}
 # Parse image labels
-markerTypes, distances = parseLabels(labels)
+markerTypes, distances, imageIndexes = parseLabels(labels)
 
-print(images.shape)
-print(markerTypes.shape)
-print(distances.shape)
 
-N = 800
-img = images[N,:,:]
-binary = thresholdCumulativeHistogramArea(images[N,:,:], distances[N])
-showImages([img, binary])
+multipliers = np.arange(0.1, 2.1, 0.2)
+results = []
+
+blobAlg = blobRadiusAlg()
+
+for k in range(len(multipliers)):
+    result = []
+    print("#######################################")
+    for i in range(images.shape[0]):
+        if i%300 == 0: print(".")
+        algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], multipliers[k])
+
+        if imageIndexes[i] <= markerPresentIndex[distances[i]]:
+            # Image contains valid marker        
+            result.append(algResult)
+
+    results.append(result)
+
+for i in range(len(results)):
+    print("############ ", multipliers[i], ":")
+    for j in range(max(results[i])+1):
+        print(j, ": ", results[i].count(j))
 #blobRadiusAlg(logarithmic_corrected, distN)
 #binary = thresholdMaxValOffset(images[N], 80)
 #showImages([images[N], binary])
