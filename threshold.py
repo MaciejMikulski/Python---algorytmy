@@ -48,7 +48,7 @@ def thresholdHistogramMaxOffset(image, offset, datType=np.uint8):
         thresholdedImage = image >= np.clip(np.max(hist) + offset, 0, 255)
         return thresholdedImage.astype(datType)
 
-def thresholdCumulativeHistogramArea(image, markerArea, datType=np.uint8):
+def thresholdCumulativeHistogramArea(image, markerArea, offset, datType=np.uint8):
         """
         Calculates cumulative histogram of the image and calculates threshold
         based on the predicted area of the marker. N brightest pixels which would 
@@ -80,5 +80,5 @@ def thresholdCumulativeHistogramArea(image, markerArea, datType=np.uint8):
             if cumulativeHistogram > backgroundArea:
                   thresholdValue = i
                   break
-        thresholdedImage = image >= thresholdValue + 10
+        thresholdedImage = image >= np.clip(thresholdValue + offset, 0, 255)
         return thresholdedImage.astype(datType)

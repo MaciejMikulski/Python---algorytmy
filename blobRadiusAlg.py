@@ -9,7 +9,7 @@ from threshold import *
 class blobRadiusAlg:
 
 
-    def blobAlgorithm(self, img, distance, mult, markerType=1):
+    def blobAlgorithm(self, img, distance, offset, markerType=1):
         """
         This function performs marker detection algorithm based on
         blob detection and search of other squares in a radius around
@@ -43,7 +43,7 @@ class blobRadiusAlg:
         ####################################### THRESHOLDING ############################################
         expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
 
-        binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * mult))
+        binary = thresholdCumulativeHistogramArea(img, expectedBlobArea * 2, offset)
 
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters

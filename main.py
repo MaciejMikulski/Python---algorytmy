@@ -28,24 +28,24 @@ elif usedMarkerType == "B":
 else:
     raise Exception("Wrong marker type.")
 
-# maximum image IDs that contain valid markers
-#          Distances: 2          25         3          35         4          45         5          55
-markerPresentIndex = {300.0: 40, 375.0: 80, 450.0: 79, 525.0: 80, 600.0: 80, 675.0: 80, 750.0: 80, 825.0: 80}
+
 # Parse image labels
 markerTypes, distances, imageIndexes = parseLabels(labels)
 
-
-multipliers = np.arange(0.1, 2.1, 0.2)
+# maximum image IDs that contain valid markers
+#          Distances: 2          25         3          35         4          45         5          55
+markerPresentIndex = {300.0: 40, 375.0: 80, 450.0: 79, 525.0: 80, 600.0: 80, 675.0: 80, 750.0: 80, 825.0: 80}
+offsets = range(0, 100, 10)
 results = []
 
 blobAlg = blobRadiusAlg()
 
-for k in range(len(multipliers)):
+for k in range(len(offsets)):
     result = []
     print("#######################################")
     for i in range(images.shape[0]):
         if i%300 == 0: print(".")
-        algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], multipliers[k])
+        algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], offsets[k])
 
         if imageIndexes[i] <= markerPresentIndex[distances[i]]:
             # Image contains valid marker        
@@ -54,7 +54,7 @@ for k in range(len(multipliers)):
     results.append(result)
 
 for i in range(len(results)):
-    print("############ ", multipliers[i], ":")
+    print("############ ", offsets[i], ":")
     for j in range(max(results[i])+1):
         print(j, ": ", results[i].count(j))
 #blobRadiusAlg(logarithmic_corrected, distN)
