@@ -44,8 +44,8 @@ for k in range(len(offsets)):
     result = []
     print("#######################################")
     for i in range(images.shape[0]):
-        if i%300 == 0: print(".")
-        algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], offsets[k])
+        if i%300 == 0: print(".") 
+        _, _, _, algResult, _ = blobAlg.blobAlgorithm(images[i,:,:], distances[i], offsets[k])
 
         if imageIndexes[i] <= markerPresentIndex[distances[i]]:
             # Image contains valid marker        

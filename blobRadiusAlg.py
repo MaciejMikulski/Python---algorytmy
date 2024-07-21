@@ -41,6 +41,7 @@ class blobRadiusAlg:
         rot = 0.0
 
         ####################################### THRESHOLDING ############################################
+        # Expected area in pixels of one square of the marker (blob)
         expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
 
         binary = thresholdCumulativeHistogramArea(img, expectedBlobArea * 2, offset)
@@ -50,31 +51,20 @@ class blobRadiusAlg:
         labelIm, blobNum = label(binary, background=0, connectivity=1, return_num=True)
         blobProperties = regionprops(labelIm)
         # Get area and bounding box of all the blobs
-        area = []
-        boundingBox = []
+        blobArea = np.zeros((blobNum,))
+        boundingBox = np.zeros((4, blobNum))
         for i in range(blobNum):
-            area.append(blobProperties[i].area)
-            boundingBox.append(blobProperties[i].bbox)
-        blobArea = np.array(area)
-        blobBoundBox = np.array(boundingBox)
-
-
-
+            blobArea[i] = blobProperties[i].area
+            boundingBox[i,:] = np.array(blobProperties[i].bbox)
         # If threre are less than 3 blobs left, marker crertainly not detectable, exit
         #if len(blobArea) < 4:
         #    return x, y, rot
         
         ########################################## AREA FILTRATION #################################################
-        # Expected area in pixels of one square of the marker (blob)
-        expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
-
         # Remove blobs that are too small or too big
-        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, blobBoundBox, expectedBlobArea, 0.3, 1.7)
-
-        return len(blobArea)
+        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, expectedBlobArea, 0.3, 1.7)
 
         ################################### ANGLE CALCULATION ###############################
-        blobAngles = []
         # Find coordinates of blob centers
         blobCenters = self.getBlobCenterCoords(blobBoundBox)
         # And append them to an image
@@ -85,10 +75,7 @@ class blobRadiusAlg:
         #     blobCentersIm[x, y] = 100.0
         # Find all non-duplicate angles between found blob centers
         blobAngles = self.getBlobAngles(blobCenters, mode='Closest')
-        #showImages([img, labelIm, delBlobsIm, blobCentersIm], str(len(blobArea)))
-        #else:
-        #showImages([img, labelIm, delBlobsIm], str(len(blobArea)))
-        
+
         return x, y, rot, len(blobArea), blobAngles
 
 
@@ -155,7 +142,7 @@ class blobRadiusAlg:
         centers : ndarray
         Coordinates of blob centers. [][0] is x and [][1] is y coordinate.
         """
-        centers = []
+        centers = np.zeros((len(bboxes), 2))
         for i in range(len(bboxes)):
             minCol = bboxes[i, 0]
             minRow = bboxes[i, 1]
@@ -163,7 +150,8 @@ class blobRadiusAlg:
             maxRow = bboxes[i, 3]
             x = (int)((minCol + maxCol) / 2)
             y = (int)((minRow + maxRow) / 2)
-            centers.append((x, y))
+            centers[i, 0] = x
+            centers[i, 1] = y
 
         return np.array(centers)
 
@@ -203,49 +191,55 @@ class blobRadiusAlg:
         With mode 'Closest' for one center point there is one angle. Angles are orederd by 
         center vertex index.
         """
-        anglesIndexes = []
-        angles = []
+        centersNumber = centers.shape[0]
+        anglesIndexes = np.zeros((centersNumber, 3))
+        angles = np.zeros((centersNumber,))
+        
         if mode == 'All':
             # Get all combination of non-repeating point indexes
-            for i in range(centers.shape[0]):
-                for j in range(centers.shape[0]):
-                    for k in range(centers.shape[0]):
+            for i in range(centersNumber):
+                for j in range(centersNumber):
+                    for k in range(centersNumber):
                         if (j != i and k != i and j != k and j < k):
                         # j < k, Otherwise current point is duplicate
                             anglesIndexes.append((i, j, k))
         elif mode == 'Closest':
             # Find two closes neighbours for all points
-            # List of tuples. Each tuple holds distances from all other points
-            distances = []
-            for i in range(centers.shape[0]):
-                tmpDist = [] # Tuple containing distances to all points
-                p1 = centers[i,:] # Get current point
-                for j in range(centers.shape[0]):
-                    p2 = centers[j,:] # Get second point
-                    tmpDist.append(math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2))
-                distances.append(tmpDist)
-            distances = np.array(distances)
+            # Array holding distances between all pairs of points
+            distances = np.zeros((centersNumber, centersNumber))
+            # For every point ...
+            for i in range(centersNumber):
+                distancesOnePoint = np.zeros((centersNumber,)) # create array of distances to all points (incl. to itself), ...
+                p1 = centers[i,:] # get current point, ...
+                for j in range(centersNumber):
+                    p2 = centers[j,:] # get second point ...
+                    distancesOnePoint[j] = math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2) # and calculate distance.
+                distances[i,:] = distancesOnePoint # Add them to the main array
+            
             closestDist = np.copy(distances)
-            closestDist.sort(axis=1)
-            closestDist = closestDist[:,1:3] # Get distances to 2 closest neighbours
+            closestDist.sort(axis=1) # Get distances to 2 closest neighbours by sorting the array ...
+            closestDist = closestDist[:,1:3] # ... and getting 2 smallest (excluding distance to self - 0.0)
 
-            for i in range(distances.shape[0]):
-                tmpIndexPair = []
-                for j in range(distances.shape[1]):
+            tmpBlobPairIndexes = np.zeros((2,))
+            for i in range(centersNumber):
+                pairIndex = 0 # Index of the place in the pair where the blob index should be stored
+                for j in range(centersNumber):
                     if distances[i, j] == closestDist[i, 0] or distances[i, j] == closestDist[i, 1]:
-                        tmpIndexPair.append(j) # Save index of one of the closest blobs
+                        tmpBlobPairIndexes[pairIndex] = j # Save index of one of the closest blobs
+                        pairIndex += 1 # Save the next index in other place in the pair
                 #Save current blob index and two closest neighbours to get 3 angle vertecies
-                anglesIndexes.append([i, tmpIndexPair[0], tmpIndexPair[1]])
-            anglesIndexes = np.array(anglesIndexes)
+                anglesIndexes[i, 0] = i
+                anglesIndexes[i, 1] = tmpBlobPairIndexes[0]
+                anglesIndexes[i, 2] = tmpBlobPairIndexes[1]
 
         # Calculate angles
-        for i in range(len(anglesIndexes)):
-            p1x = centers[anglesIndexes[i][0], 0]
-            p1y = centers[anglesIndexes[i][0], 1]
-            p2x = centers[anglesIndexes[i][1], 0]
-            p2y = centers[anglesIndexes[i][1], 1]
-            p3x = centers[anglesIndexes[i][2], 0]
-            p3y = centers[anglesIndexes[i][2], 1]
-            angles.append(self.calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y))
+        for i in range(centersNumber):
+            p1x = centers[anglesIndexes[i, 0], 0]
+            p1y = centers[anglesIndexes[i, 0], 1]
+            p2x = centers[anglesIndexes[i, 1], 0]
+            p2y = centers[anglesIndexes[i, 1], 1]
+            p3x = centers[anglesIndexes[i, 2], 0]
+            p3y = centers[anglesIndexes[i, 2], 1]
+            angles[i] = self.calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y)
 
         return angles
