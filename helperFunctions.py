@@ -20,7 +20,9 @@ def getImages(path, imType='png'):
     subdirectories = listSubdirectoriesRecursively(path)
 
     images = []
-    imLabels = []
+    markerType = np.array([])
+    distance = np.array([])
+    id = np.array([])
     for j in range(len(subdirectories)):
         print('.', end="")
         # Get paths of all images in current subdirectory
@@ -30,33 +32,23 @@ def getImages(path, imType='png'):
             images.append(imread(imPaths[i]))
 
         # Parse all labels
+        tmpMarkerType = np.zeros((len(imPaths),))
+        tmpDistance = np.zeros((len(imPaths),))
+        tmpId = np.zeros((len(imPaths),))
         for i in range(len(imPaths)):
-            findsShort = re.findall("[0-9]-[0-9]-[0-9]", imPaths[i])
-            findsLong = re.findall("[0-9]-[0-9][0-9]-[0-9]", imPaths[i])
-            if len(findsShort) == 0:
-                imLabels.append(findsLong[0])
+            match = re.findall(r"(\d+)-(\d+)-(\d+)", imPaths[i])
+            if match:
+                tmpMarkerType[i] = match[0][0]
+                tmpDistance[i] = match[0][1]
+                tmpId[i] = match[0][2]
             else:
-                imLabels.append(findsShort[0])
+                raise Exception("Invalid image label: " + str(match))   
+        # Append labels found in current folder to list of all labels
+        markerType = np.append(markerType, tmpMarkerType)
+        distance = np.append(distance, tmpDistance)
+        id = np.append(id, tmpId)
 
-    return imLabels, np.array(images), imPaths
-
-def parseLabels(labels):
-    markerType = []
-    distance = []
-    id = []
-    for i in range(len(labels)):
-        tmp = labels[i]
-        markerType.append(int(tmp[0:1]))
-        if len(tmp) == 5:
-            distance.append(float(tmp[2:3])*150.0)
-            id.append(int(tmp[4:5]))
-        elif len(tmp) == 6:
-            distance.append(float(tmp[2:4])*15.0)
-            id.append(int(tmp[5:6]))
-        else:
-            pass    
-
-    return np.array(markerType), np.array(distance), np.array(id)
+    return np.array(images),markerType, distance, id, imPaths
 
 def getSizeInPixels(realLifeSize, distance):
     """

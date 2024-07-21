@@ -21,37 +21,44 @@ usedMarkerType = "B"
 pathA = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_A')
 pathB = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_B')
 
+# Get images and parsed data
 if usedMarkerType == "A":
-    labels, images, paths = getImages(pathA)
+    images, markerTypes, distances, imageIndexes, paths = getImages(pathA)
 elif usedMarkerType == "B":
-    labels, images, paths = getImages(pathB)
+    images, markerTypes, distances, imageIndexes, paths = getImages(pathB)
 else:
     raise Exception("Wrong marker type.")
 
 
-# Parse image labels
-markerTypes, distances, imageIndexes = parseLabels(labels)
-
 # maximum image IDs that contain valid markers
 #          Distances: 2          25         3          35         4          45         5          55
 markerPresentIndex = {300.0: 40, 375.0: 80, 450.0: 79, 525.0: 80, 600.0: 80, 675.0: 80, 750.0: 80, 825.0: 80}
+
+multipliers = np.arange(1.0, 4.1, 0.3)
 offsets = range(0, 100, 10)
 results = []
 
 blobAlg = blobRadiusAlg()
-
+ 
+imagesNum = images.shape[0]
+imagesNumDiv = imagesNum / 5
+cnt = 0
 for k in range(len(offsets)):
-    result = []
-    print("#######################################")
-    for i in range(images.shape[0]):
-        if i%300 == 0: print(".") 
-        _, _, _, algResult, _ = blobAlg.blobAlgorithm(images[i,:,:], distances[i], offsets[k])
+    for l in range(len(multipliers)):
+        result = []
+        currMultiplier = multipliers[l]
+        currOffset = offsets[k]
+        print("################ offset: ", currOffset, ", multiplier: ", currMultiplier, " ################")
+        for i in range(imagesNum):
+            if i%imagesNumDiv == 0: print(".", end="") 
+            algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], currOffset, currMultiplier)
 
-        if imageIndexes[i] <= markerPresentIndex[distances[i]]:
-            # Image contains valid marker        
-            result.append(algResult)
-
-    results.append(result)
+            if imageIndexes[i] <= markerPresentIndex[distances[i]]:
+                # Image contains valid marker
+                cnt += 1        
+                result.append(algResult)
+        print(cnt)
+        results.append(result)
 
 for i in range(len(results)):
     print("############ ", offsets[i], ":")

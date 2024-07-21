@@ -9,7 +9,7 @@ from threshold import *
 class blobRadiusAlg:
 
 
-    def blobAlgorithm(self, img, distance, offset, markerType=1):
+    def blobAlgorithm(self, img, distance, offset=0, multiplier=2, markerType=1):
         """
         This function performs marker detection algorithm based on
         blob detection and search of other squares in a radius around
@@ -44,7 +44,7 @@ class blobRadiusAlg:
         # Expected area in pixels of one square of the marker (blob)
         expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
 
-        binary = thresholdCumulativeHistogramArea(img, expectedBlobArea * 2, offset)
+        binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * multiplier), offset)
 
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters
@@ -52,7 +52,7 @@ class blobRadiusAlg:
         blobProperties = regionprops(labelIm)
         # Get area and bounding box of all the blobs
         blobArea = np.zeros((blobNum,))
-        boundingBox = np.zeros((4, blobNum))
+        boundingBox = np.zeros((blobNum, 4))
         for i in range(blobNum):
             blobArea[i] = blobProperties[i].area
             boundingBox[i,:] = np.array(blobProperties[i].bbox)
@@ -64,6 +64,7 @@ class blobRadiusAlg:
         # Remove blobs that are too small or too big
         delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, expectedBlobArea, 0.3, 1.7)
 
+        return len(blobArea)
         ################################### ANGLE CALCULATION ###############################
         # Find coordinates of blob centers
         blobCenters = self.getBlobCenterCoords(blobBoundBox)
