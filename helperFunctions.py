@@ -48,7 +48,7 @@ def getImages(path, imType='png'):
         distance = np.append(distance, tmpDistance)
         id = np.append(id, tmpId)
 
-    return np.array(images),markerType, distance, id, imPaths
+    return np.array(images), markerType, distance, id, imPaths
 
 def getSizeInPixels(realLifeSize, distance):
     """
@@ -71,13 +71,13 @@ def getSizeInPixels(realLifeSize, distance):
     b = 34
     return int(np.rint((a * distance + b) * realLifeSize))
 
-def showImages(images: List[np.ndarray], title='') -> None:
+def showImages(images: List[np.ndarray], rows, cols, title='') -> None:
     n: int = len(images)
     f = plt.figure()
     f.suptitle(title)
     for i in range(n):
         # Debug, plot figure
-        f.add_subplot(1, n, i + 1)
+        f.add_subplot(rows, cols, i + 1)
         plt.imshow(images[i])
 
     plt.show(block=True)

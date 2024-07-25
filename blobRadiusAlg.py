@@ -64,7 +64,7 @@ class blobRadiusAlg:
         # Remove blobs that are too small or too big
         delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, expectedBlobArea, 0.3, 1.7)
 
-        return len(blobArea)
+        return delBlobsIm, len(blobArea)
         ################################### ANGLE CALCULATION ###############################
         # Find coordinates of blob centers
         blobCenters = self.getBlobCenterCoords(blobBoundBox)

@@ -29,20 +29,18 @@ elif usedMarkerType == "B":
 else:
     raise Exception("Wrong marker type.")
 
-
 # maximum image IDs that contain valid markers
-#          Distances: 2          25         3          35         4          45         5          55
-markerPresentIndex = {300.0: 40, 375.0: 80, 450.0: 79, 525.0: 80, 600.0: 80, 675.0: 80, 750.0: 80, 825.0: 80}
+#          Distances: 2        25        3        35        4        45        5        55
+markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5.0: 80, 55.0: 80}
 
-multipliers = np.arange(1.0, 4.1, 0.3)
-offsets = range(0, 100, 10)
+multipliers = np.arange(0.0, 4.1, 0.25)
+offsets = range(0, 50, 10)
 results = []
 
 blobAlg = blobRadiusAlg()
- 
+
 imagesNum = images.shape[0]
-imagesNumDiv = imagesNum / 5
-cnt = 0
+resultImages = np.zeros((imagesNum, 120, 160))
 for k in range(len(offsets)):
     for l in range(len(multipliers)):
         result = []
@@ -50,20 +48,22 @@ for k in range(len(offsets)):
         currOffset = offsets[k]
         print("################ offset: ", currOffset, ", multiplier: ", currMultiplier, " ################")
         for i in range(imagesNum):
-            if i%imagesNumDiv == 0: print(".", end="") 
-            algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], currOffset, currMultiplier)
+            if i % 200 == 0: print(".", end="") 
+            resultImage, algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], currOffset, currMultiplier)
 
+            resultImages[i,:,:] = resultImage
             if imageIndexes[i] <= markerPresentIndex[distances[i]]:
-                # Image contains valid marker
-                cnt += 1        
+                # Image contains valid marker        
                 result.append(algResult)
-        print(cnt)
         results.append(result)
 
-for i in range(len(results)):
-    print("############ ", offsets[i], ":")
-    for j in range(max(results[i])+1):
-        print(j, ": ", results[i].count(j))
+for k in range(len(offsets)):
+    for l in range(len(multipliers)):
+        print("################ offset: ", offsets[k], ", multiplier: ", multipliers[l], " ################")
+        for j in range(max(results[k*len(offsets)+l])+1):
+            print(j, ": ", results[k*len(offsets)+l].count(j))
+
+
 #blobRadiusAlg(logarithmic_corrected, distN)
 #binary = thresholdMaxValOffset(images[N], 80)
 #showImages([images[N], binary])
