@@ -2,30 +2,29 @@ from threshold import *
 from helperFunctions import *
 from blobRadiusAlg import *
 
-import skimage as ski
-from skimage.io import imshow
-from skimage import exposure
-from skimage.filters import try_all_threshold
-
-
-import matplotlib
-import matplotlib.pyplot as plt
+import os
 import numpy as np
 
-from skimage import data, img_as_float
-from skimage import exposure
+from sklearn.cluster import KMeans
+from sklearn.metrics import davies_bouldin_score
+from sklearn.metrics import silhouette_score
 
-usedMarkerType = "B"
+#usedMarkerType = "A"
+#usedMarkerType = "B"
+usedMarkerType = "Bcorrect"
 
 # Path to images folder
 pathA = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_A')
 pathB = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_B')
+pathBCorrect = os.path.join(os.path.dirname(__file__), 'Zdjecia', 'zdjecia_FOK2', 'Znacznik_B_poprawne')
 
 # Get images and parsed data
 if usedMarkerType == "A":
-    images, markerTypes, distances, imageIndexes, paths = getImages(pathA)
+    images, markerTypes, distances, imageIndexes, filenames = getImages(pathA)
 elif usedMarkerType == "B":
-    images, markerTypes, distances, imageIndexes, paths = getImages(pathB)
+    images, markerTypes, distances, imageIndexes, filenames = getImages(pathB)
+elif usedMarkerType == "Bcorrect":
+    images, markerTypes, distances, imageIndexes, filenames = getImages(pathBCorrect)
 else:
     raise Exception("Wrong marker type.")
 
@@ -33,37 +32,45 @@ else:
 #          Distances: 2        25        3        35        4        45        5        55
 markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5.0: 80, 55.0: 80}
 
-multipliers = np.arange(0.0, 4.1, 0.25)
-offsets = range(0, 50, 10)
-results = []
-
 blobAlg = blobRadiusAlg()
 
-imagesNum = images.shape[0]
-resultImages = np.zeros((imagesNum, 120, 160))
-for k in range(len(offsets)):
-    for l in range(len(multipliers)):
-        result = []
-        currMultiplier = multipliers[l]
-        currOffset = offsets[k]
-        print("################ offset: ", currOffset, ", multiplier: ", currMultiplier, " ################")
-        for i in range(imagesNum):
-            if i % 200 == 0: print(".", end="") 
-            resultImage, algResult = blobAlg.blobAlgorithm(images[i,:,:], distances[i], currOffset, currMultiplier)
 
-            resultImages[i,:,:] = resultImage
-            if imageIndexes[i] <= markerPresentIndex[distances[i]]:
-                # Image contains valid marker        
-                result.append(algResult)
-        results.append(result)
+angles = []
+#blobNum = []
+######## GET BLOB ANGLES #########
+for i in range(len(images)):
+    x, y, rot, num, blobAngles = blobAlg.blobAlgorithm(images[i], distances[i])
+    #blobNum.append(num)
+    angles.append(blobAngles)
+#print(blobNum)
 
-for k in range(len(offsets)):
-    for l in range(len(multipliers)):
-        print("################ offset: ", offsets[k], ", multiplier: ", multipliers[l], " ################")
-        for j in range(max(results[k*len(offsets)+l])+1):
-            print(j, ": ", results[k*len(offsets)+l].count(j))
+angles = np.array(angles)
+angles.sort(axis=1)
+angles = np.around(angles/5.0, decimals=0)*5
+print(angles)
+############### DETERMINE OPTIMAL NUMBER OF CLUSTERS ###############
+#kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(angles)
+#labels = kmeans.labels_
 
+#angles0 = angles[labels == 0,:]
+#angles1 = angles[labels == 1,:]
+#print(angles0.shape)
+#print(angles1.shape)
+#print(angles.shape)
+#print(angles0)
+#print(angles1)
 
-#blobRadiusAlg(logarithmic_corrected, distN)
-#binary = thresholdMaxValOffset(images[N], 80)
-#showImages([images[N], binary])
+#index = []
+#N = 20
+#print("Davies-Bouldin scores:")
+#for i in range(2,N+1,1):
+#    kmeans = KMeans(n_clusters=i, random_state=0, n_init="auto").fit(angles)
+#    labels = kmeans.labels_
+#    score = silhouette_score(angles, labels)
+#    index.append(score)
+#    print("i: ", i, "score: ", score)
+
+#for i in range(len(images)):
+#    title = str(round(angles[i, 0], 3)) + " " + str(round(angles[i, 1], 3)) + " " + str(round(angles[i, 2], 3)) + " " + str(round(angles[i, 3], 3))
+#    showImages([images[i,:,:]], 1, 1, title)
+

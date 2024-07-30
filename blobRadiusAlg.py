@@ -1,6 +1,5 @@
 import math
 
-from skimage.filters import threshold_minimum, threshold_mean
 from skimage.measure import label, regionprops
 
 from helperFunctions import *
@@ -9,7 +8,7 @@ from threshold import *
 class blobRadiusAlg:
 
 
-    def blobAlgorithm(self, img, distance, offset=0, multiplier=2, markerType=1):
+    def blobAlgorithm(self, img, distance, markerType=2):
         """
         This function performs marker detection algorithm based on
         blob detection and search of other squares in a radius around
@@ -23,8 +22,8 @@ class blobRadiusAlg:
             Approximate distance form the camera to the marker.
         markerType : int
             Describes type of marker to be detected.
-                1 - marker A (Olgierd's marker)
-                2 - marker B (Maciej's marker)
+                1 - marker A (Maciej's marker)
+                2 - marker B (Olgierd's marker)
 
         Returns
         ----------
@@ -43,8 +42,7 @@ class blobRadiusAlg:
         ####################################### THRESHOLDING ############################################
         # Expected area in pixels of one square of the marker (blob)
         expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
-
-        binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * multiplier), offset)
+        binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * 1.5), 0)
 
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters
@@ -64,18 +62,19 @@ class blobRadiusAlg:
         # Remove blobs that are too small or too big
         delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, expectedBlobArea, 0.3, 1.7)
 
-        return delBlobsIm, len(blobArea)
         ################################### ANGLE CALCULATION ###############################
         # Find coordinates of blob centers
         blobCenters = self.getBlobCenterCoords(blobBoundBox)
         # And append them to an image
-        # blobCentersIm = np.copy(delBlobsIm)
-        # for i in range(len(blobCenters)):
-        #     x = (int)(blobCenters[i, 0])
-        #     y = (int)(blobCenters[i, 1])
-        #     blobCentersIm[x, y] = 100.0
+
+        blobCentersIm = np.zeros_like(delBlobsIm)
+        for i in range(len(blobCenters)):
+            x = (int)(blobCenters[i, 0])
+            y = (int)(blobCenters[i, 1])
+            blobCentersIm[x, y] = 10 * i + 10
+        showImages([blobCentersIm], 1, 1)
         # Find all non-duplicate angles between found blob centers
-        blobAngles = self.getBlobAngles(blobCenters, mode='Closest')
+        blobAngles = self.getBlobAngles(blobCenters, mode='All')
 
         return x, y, rot, len(blobArea), blobAngles
 
@@ -156,7 +155,7 @@ class blobRadiusAlg:
 
         return np.array(centers)
 
-    def calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y):
+    def calculateAnglePoints(self, p1x, p1y, p2x, p2y, p3x, p3y):
         numerator = p2y*(p1x-p3x) + p1y*(p3x-p2x) + p3y*(p2x-p1x)
         denominator = (p2x-p1x)*(p1x-p3x) + (p2y-p1y)*(p1y-p3y)
         eps = 0.001
@@ -193,18 +192,22 @@ class blobRadiusAlg:
         center vertex index.
         """
         centersNumber = centers.shape[0]
-        anglesIndexes = np.zeros((centersNumber, 3))
-        angles = np.zeros((centersNumber,))
+        anglesIndexes = None
+
         
         if mode == 'All':
             # Get all combination of non-repeating point indexes
+            anglesIndexes = []
             for i in range(centersNumber):
                 for j in range(centersNumber):
                     for k in range(centersNumber):
                         if (j != i and k != i and j != k and j < k):
                         # j < k, Otherwise current point is duplicate
                             anglesIndexes.append((i, j, k))
+            anglesIndexes = np.array(anglesIndexes)
+                            
         elif mode == 'Closest':
+            anglesIndexes = np.zeros((centersNumber, 3), dtype=int)
             # Find two closes neighbours for all points
             # Array holding distances between all pairs of points
             distances = np.zeros((centersNumber, centersNumber))
@@ -233,8 +236,9 @@ class blobRadiusAlg:
                 anglesIndexes[i, 1] = tmpBlobPairIndexes[0]
                 anglesIndexes[i, 2] = tmpBlobPairIndexes[1]
 
+        angles = np.zeros((anglesIndexes.shape[0],))
         # Calculate angles
-        for i in range(centersNumber):
+        for i in range(anglesIndexes.shape[0]):
             p1x = centers[anglesIndexes[i, 0], 0]
             p1y = centers[anglesIndexes[i, 0], 1]
             p2x = centers[anglesIndexes[i, 1], 0]
