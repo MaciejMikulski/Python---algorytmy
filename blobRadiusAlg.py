@@ -8,7 +8,7 @@ from threshold import *
 class blobRadiusAlg:
 
 
-    def blobAlgorithm(self, img, distance, markerType=2):
+    def blobAlgorithm(self, img, distance, area, areaLowMult, boundType, markerType=2):
         """
         This function performs marker detection algorithm based on
         blob detection and search of other squares in a radius around
@@ -41,8 +41,9 @@ class blobRadiusAlg:
 
         ####################################### THRESHOLDING ############################################
         # Expected area in pixels of one square of the marker (blob)
-        expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
-        binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * 1.5), 0)
+        #expectedBlobArea = getSizeInPixels(1.0, distance) ** 2
+        #binary = thresholdCumulativeHistogramArea(img, int(expectedBlobArea * 1.5), 0)
+        binary = thresholdCumulativeHistogramArea(img, area, 0)
 
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters
@@ -60,7 +61,10 @@ class blobRadiusAlg:
         
         ########################################## AREA FILTRATION #################################################
         # Remove blobs that are too small or too big
-        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, expectedBlobArea, 0.3, 1.7)
+        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, area, areaLowMult, 2.0, boundType)
+        #delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, expectedBlobArea, 0.3, 1.7)
+
+        return len(blobArea)
 
         ################################### ANGLE CALCULATION ###############################
         # Find coordinates of blob centers
@@ -79,7 +83,7 @@ class blobRadiusAlg:
         return x, y, rot, len(blobArea), blobAngles
 
 
-    def removeBlobsArea(self, img, areas, bboxes, expectArea, areaLowBound, areaHighBound):
+    def removeBlobsArea(self, img, areas, bboxes, expectArea, areaLowBound, areaHighBound, lowType = "Mult"):
         """
         This method removes blobs on the image that have area smaller or bigger than specified.
         It also removes corresponding data in area an bounding box arrays.
@@ -108,7 +112,12 @@ class blobRadiusAlg:
         rmBboxes : ndarray
             List of blob bounding boxes with removed elements corresponding to deleted blobs.
         """
-        arLoBound = (int)(areaLowBound * expectArea)
+        if lowType == "Mult":
+            arLoBound = (int)(areaLowBound * expectArea)
+        elif lowType == "Val":
+            arLoBound = (int)(areaLowBound)
+        else:
+            raise Exception("Invalid low area bound.")
         arHiBound = (int)(areaHighBound * expectArea)
 
         removeIndexes = []

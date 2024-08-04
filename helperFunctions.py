@@ -98,3 +98,10 @@ def showImages(images: List[np.ndarray], rows, cols, title='') -> None:
         plt.imshow(images[i])
 
     plt.show(block=True)
+
+def unevenVectorsToArray(v):
+    lens = np.array([len(item) for item in v])
+    mask = lens[:,None] > np.arange(lens.max())
+    out = np.zeros(mask.shape,dtype=int)
+    out[mask] = np.concatenate(v)
+    return out
