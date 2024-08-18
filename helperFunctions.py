@@ -99,7 +99,26 @@ def showImages(images: List[np.ndarray], rows, cols, title='') -> None:
 
     plt.show(block=True)
 
+def imageWithPoints(points, imHeight, imWidth, backgroundIm=None):
+    """
+    This method creates image with given points or appends points into given image.
+    """
+    pointNum = points.shape[0]
+    if backgroundIm == None:
+        im = np.zeros((imHeight, imWidth))
+    else:
+        im = np.copy(backgroundIm)
+    pointValues = np.linspace(0, 255, pointNum+1)
+
+    for i in range(pointNum):
+        im[points[i,0], points[i,1]] = pointValues[i+1]
+    return im
+
 def unevenVectorsToArray(v):
+    """
+    This method vreates an nunmpy array form a list of vectors with uneven lenghts.
+    Elements not present in shorter vectors are filled with 0.
+    """
     lens = np.array([len(item) for item in v])
     mask = lens[:,None] > np.arange(lens.max())
     out = np.zeros(mask.shape,dtype=int)

@@ -82,6 +82,7 @@ class blobRadiusAlg:
         # Find which blobs belong to marker (if any).
         markerPoints = self.findMarkerPoints(blobCenters)
         print(markerPoints)
+        #showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
         # Find all non-duplicate angles between found blob centers
         # blobAngles = self.getBlobAngles(blobCenters, mode='All')
 
@@ -328,4 +329,4 @@ class blobRadiusAlg:
         #    imList.append(im[i,:,:])
         #showImages(imList, 1, len(imList))
 
-        return markerPoints
+        return markerPoints.astype(int)
