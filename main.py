@@ -36,8 +36,7 @@ else:
 markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5.0: 80, 55.0: 80}
 
 blobAlg = blobRadiusAlg()
-
-
+blobAlg.PnPAlgorithm(images[452,:,:], 600)
 
 
 
