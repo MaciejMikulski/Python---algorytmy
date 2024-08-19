@@ -5,9 +5,9 @@ from blobRadiusAlg import *
 import os
 import numpy as np
 
-from sklearn.cluster import KMeans
-from sklearn.metrics import davies_bouldin_score
-from sklearn.metrics import silhouette_score
+#from sklearn.cluster import KMeans
+#from sklearn.metrics import davies_bouldin_score
+#from sklearn.metrics import silhouette_score
 
 #usedMarkerType = "A"
 usedMarkerType = "B"

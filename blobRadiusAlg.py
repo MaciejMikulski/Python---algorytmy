@@ -1,9 +1,11 @@
 import math
+import random
 
 from skimage.measure import label, regionprops
 
 from helperFunctions import *
 from threshold import *
+
 
 class blobRadiusAlg:
 
@@ -80,14 +82,13 @@ class blobRadiusAlg:
 
         ################################### FIND MARKER BLOBS ###############################
         # Find which blobs belong to marker (if any).
-        markerPoints = self.findMarkerPoints(blobCenters)
+        markerPoints = self.findMarkerPoints(blobCenters,True,5)
         print(markerPoints)
-        #showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
+        showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
         # Find all non-duplicate angles between found blob centers
         # blobAngles = self.getBlobAngles(blobCenters, mode='All')
 
         return x, y, rot, len(blobArea)
-
 
     def removeBlobsArea(self, img, areas, bboxes, expectArea):
         """
@@ -254,7 +255,7 @@ class blobRadiusAlg:
 
         return angles
 
-    def findMarkerPoints(self, centers):
+    def findMarkerPoints(self, centers, addRandPoints=False, randPointNum=0):
         """
         This method removes returns 4 points coordinates that make up marker.
         Points are always ordered: P0, P1, P2, P3.
@@ -270,7 +271,11 @@ class blobRadiusAlg:
         If no marker is detected all points have coordinates (0,0)
         """
         markerPoints = np.zeros((4,2))
-        blobNum = centers.shape[0]
+        if addRandPoints:
+            tmpCenters = self.addRandomPoints(centers, randPointNum)
+        else:
+            tmpCenters = centers
+        blobNum = tmpCenters.shape[0]
         tripletNum = blobNum**3 - 3*blobNum**2 + 2*blobNum # n * (n-1) * (n-2)
         pointTriplets = np.zeros((tripletNum,3))
         # Store indexes of other points to use them in checking which one may fit the vector base
@@ -296,9 +301,9 @@ class blobRadiusAlg:
         crossProducts = np.zeros((tripletNum,))
         for i in range(tripletNum):
             # Get coordinates of points from triplet triplets
-            p0 = centers[pointTriplets[i, 0],:]
-            p1 = centers[pointTriplets[i, 1],:]
-            p2 = centers[pointTriplets[i, 2],:]
+            p0 = tmpCenters[pointTriplets[i, 0],:]
+            p1 = tmpCenters[pointTriplets[i, 1],:]
+            p2 = tmpCenters[pointTriplets[i, 2],:]
             # Calculate base vectors
             v0 = p1 - p0
             v1 = p2 - p1
@@ -308,7 +313,7 @@ class blobRadiusAlg:
             # Calculate distance of predicted points to all other (not in triplet) points
             for j in range(otherPoints.shape[1]):
                 pa = expectedP3[i,:]
-                pb = centers[otherPoints[i,j],:]
+                pb = tmpCenters[otherPoints[i,j],:]
                 distanceErr[i,j] = math.sqrt((pa[0]-pb[0])**2 + (pa[1]-pb[1])**2)
 
         # TODO: add selection based on absolute value of min error and return if it is too big
@@ -318,10 +323,10 @@ class blobRadiusAlg:
         # Perform final selection of marker points
         for i in range(indices.shape[0]):
             if crossProducts[indices[i,0]] < 0.0:
-                markerPoints[0,:] = centers[pointTriplets[indices[i,0], 0],:]
-                markerPoints[1,:] = centers[pointTriplets[indices[i,0], 1],:]
-                markerPoints[2,:] = centers[pointTriplets[indices[i,0], 2],:]
-                markerPoints[3,:] = centers[otherPoints  [indices[i,0], 0],:]
+                markerPoints[0,:] = tmpCenters[pointTriplets[indices[i,0], 0],:]
+                markerPoints[1,:] = tmpCenters[pointTriplets[indices[i,0], 1],:]
+                markerPoints[2,:] = tmpCenters[pointTriplets[indices[i,0], 2],:]
+                markerPoints[3,:] = tmpCenters[otherPoints  [indices[i,0], 0],:]
 
         #im = np.zeros((indices.shape[0], 120, 160))
         #imList = [img]
@@ -330,3 +335,29 @@ class blobRadiusAlg:
         #showImages(imList, 1, len(imList))
 
         return markerPoints.astype(int)
+    
+    def addRandomPoints(self, points, num, maxX=160, maxY=120):
+        """
+        This method adds specified numer of points to an array.
+
+        Parameters
+        ----------
+        points: ndarray
+            Array of points to which new ones should be appended. Each row holds point
+            position (x, y)
+        num: int
+            Number of points that should be added to the given array.
+        maxX: int
+            Maximum posiible value of x coordinate.
+        maxY: int
+            Maximum posiible value of y coordinate.
+        Returns
+        ----------
+        ndarray: Array with appended points.
+        """
+        addedPoints = np.zeros((num, 2))
+        randX = np.random.randint(0, maxX + 1, (num, 1))
+        randY = np.random.randint(0, maxY + 1, (num, 1))
+        addedPoints[:,0] = randX.ravel()
+        addedPoints[:,1] = randY.ravel()
+        return np.append(points, addedPoints, axis=0)
