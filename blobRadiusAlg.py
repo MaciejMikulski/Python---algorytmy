@@ -2,6 +2,7 @@ import math
 import random
 
 from skimage.measure import label, regionprops
+import cv2
 
 from helperFunctions import *
 from threshold import *
@@ -82,11 +83,32 @@ class blobRadiusAlg:
 
         ################################### FIND MARKER BLOBS ###############################
         # Find which blobs belong to marker (if any).
-        markerPoints = self.findMarkerPoints(blobCenters,True,5)
-        print(markerPoints)
-        showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
+        marker2Dpoints = self.findMarkerPoints(blobCenters,True,5)
+        # print(markerPoints)
+        # showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
         # Find all non-duplicate angles between found blob centers
         # blobAngles = self.getBlobAngles(blobCenters, mode='All')
+        f = 0.05
+        cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
+        marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
+        (success, rotation_vector, translation_vector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
+        print("Rotation Vector:\n {0}".format(rotation_vector))
+        print("Translation Vector:\n {0}".format(translation_vector))
+        (nose_end_point2D, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, 10.0)]), rotation_vector, translation_vector, cameraMatrix, None)
+ 
+        for p in marker2Dpoints:
+            cv2.circle(img, (int(p[0]), int(p[1])), 2, (0,0,255), -1)
+        
+        p1 = ( int(marker2Dpoints[0][0]), int(marker2Dpoints[0][1]))
+        p2 = ( int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
+        
+        cv2.line(img, p1, p2, (255,0,0), 1)
+        
+        # Display image
+        showImages([img], 1, 1)
+       # cv2.imshow("Output", img)
+        #cv2.waitKey(0)
+
 
         return x, y, rot, len(blobArea)
 
