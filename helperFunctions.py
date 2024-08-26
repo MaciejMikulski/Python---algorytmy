@@ -88,13 +88,16 @@ def presentImages(images, rows, cols):
         else:
             showImages(images[i:imagesNum,:,:], rows, cols, str(i) + ' - ' + str(imagesNum))
 
-def showImages(images: List[np.ndarray], rows, cols, title='') -> None:
+def showImages(images: List[np.ndarray], rows, cols, title='', subtitles=None) -> None:
     n: int = len(images)    
-    f = plt.figure()
+    f = plt.figure(figsize=(10,10))
     f.suptitle(title)
+
     for i in range(n):
         # Debug, plot figure
-        f.add_subplot(rows, cols, i + 1)
+        ax = f.add_subplot(rows, cols, i + 1)
+        if subtitles != None:
+            ax.set_title(subtitles[i])
         plt.imshow(images[i])
 
     plt.show(block=True)
@@ -104,6 +107,7 @@ def imageWithPoints(points, imHeight, imWidth, backgroundIm=None):
     This method creates image with given points or appends points into given image.
     """
     pointNum = points.shape[0]
+    tmpPoints = points.astype(int)
     if backgroundIm == None:
         im = np.zeros((imHeight, imWidth))
     else:
@@ -111,7 +115,7 @@ def imageWithPoints(points, imHeight, imWidth, backgroundIm=None):
     pointValues = np.linspace(0, 255, pointNum+1)
 
     for i in range(pointNum):
-        im[points[i,0], points[i,1]] = pointValues[i+1]
+        im[tmpPoints[i,1], tmpPoints[i,0]] = pointValues[i+1]
     return im
 
 def unevenVectorsToArray(v):
