@@ -30,17 +30,16 @@ class blobRadiusAlg:
 
         Returns
         ----------
-        x : int
-            Position of the marker in x axis. Set to 255 if no marker 
-            is detected.
-        y : int
-            Posiion of the market in y axis.
-        rot : float
-            Rotation of the marker.
+        rotationVector: ndarray
+            3x1 vector containing rotation values: psi, theta and fi respectively.
+        translatioVector: ndarray
+            3x1 vector containing translation values in meters.
+        algSuccess: bool
+            True if algorith sucessfully detected a marker.
         """
-        x: int = 255
-        y: int = 0
-        rot = 0.0
+        rotationVector = np.zeros((3,))
+        translationVector = np.zeros((3,))
+        algSuccess: bool = False
         # images = [img]
         # Number of brightest pixels in the image that shall be considered as part of the marker
         # Found in simulation on test images.
@@ -48,7 +47,7 @@ class blobRadiusAlg:
 
         ####################################### THRESHOLDING ############################################
         binary = thresholdCumulativeHistogramArea(img, area, 0)
-        images.append(binary)
+        # images.append(binary)
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters
         labelIm, blobNum = label(binary, background=0, connectivity=1, return_num=True)
@@ -61,7 +60,7 @@ class blobRadiusAlg:
             boundingBox[i,:] = np.array(blobProperties[i].bbox)
         # If threre are less than 3 blobs left, marker crertainly not detectable, exit
         if len(blobArea) < 4:
-            return x, y, rot
+            return (psi, theta, fi, algSuccess)
         # images.append(labelIm)
         ########################################## AREA FILTRATION #################################################
         # Remove blobs that are too small or too big
@@ -84,16 +83,23 @@ class blobRadiusAlg:
 
         ################################### FIND MARKER BLOBS ###############################
         # Find which blobs belong to marker (if any).
-        marker2Dpoints, imNoisePoints = self.findMarkerPoints(blobCenters ,True, 5)
+        marker2Dpoints = self.findMarkerPoints(blobCenters)# ,True, 5)
         # images.append(imNoisePoints)
         # print(markerPoints)
         # showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
-        # Find all non-duplicate angles between found blob centers
-        # blobAngles = self.getBlobAngles(blobCenters, mode='All')
         f = 0.05 / 12e-6 # pixel uints
         cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
         marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
-        (success, rotation_vector, translation_vector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
+        (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
+        if not success:
+            return (rotationVector, translationVector, algSuccess)
+        
+        (rotationVectorPnP, _) = cv2.Rodrigues(rotationVectorPnP)
+        # rotationVectorPnP = np.transpose(rotationVectorPnP)
+        rotationVector[0] = math.atan2(rotationVectorPnP[0, 1], rotationVectorPnP[0, 0])
+        rotationVector[1] = math.asin(-rotationVectorPnP[0, 2])
+        rotationVector[2] = math.atan2(rotationVectorPnP[1, 2], rotationVectorPnP[2, 2])
+        algSuccess = True
         # print("Success: ", success)
         # print("Rotation Vector:\n {0}".format(rotation_vector))
         # print("Translation Vector:\n {0}".format(translation_vector))
@@ -116,7 +122,7 @@ class blobRadiusAlg:
         #cv2.waitKey(0)
 
 
-        return x, y, rot, len(blobArea)
+        return (rotationVector, translationVector, algSuccess)
 
     def removeBlobsArea(self, img, areas, bboxes, expectArea):
         """
