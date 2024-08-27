@@ -11,7 +11,7 @@ from threshold import *
 class blobRadiusAlg:
 
 
-    def PnPAlgorithm(self, img, distance, markerType=2):
+    def PnPAlgorithm(self, img, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
         detected blobs and estimating camera orientation with the use of
@@ -21,8 +21,8 @@ class blobRadiusAlg:
         ----------
         img : ndarray
             Gray-scale image to be processed.
-        distance : float
-            Approximate distance form the camera to the marker.
+        displayImage : bool
+            If true, images with all stages of algorithm are displayed at the end.
         markerType : int
             Describes type of marker to be detected.
                 1 - marker A (Maciej's marker)
@@ -40,17 +40,17 @@ class blobRadiusAlg:
         rotationVector = np.zeros((3,))
         translationVector = np.zeros((3,))
         algSuccess: bool = False
-        # images = [img]
+
         # Number of brightest pixels in the image that shall be considered as part of the marker
         # Found in simulation on test images.
         area = 380 
 
         ####################################### THRESHOLDING ############################################
-        binary = thresholdCumulativeHistogramArea(img, area, 0)
-        # images.append(binary)
+        binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
+        
         ############################### CONNECTED COMPONENT LABELING ########################################
         # Label all blobs on the image ang get their parameters
-        labelIm, blobNum = label(binary, background=0, connectivity=1, return_num=True)
+        labelIm, blobNum = label(binaryIm, background=0, connectivity=1, return_num=True)
         blobProperties = regionprops(labelIm)
         # Get area and bounding box of all the blobs
         blobArea = np.zeros((blobNum,))
@@ -60,12 +60,12 @@ class blobRadiusAlg:
             boundingBox[i,:] = np.array(blobProperties[i].bbox)
         # If threre are less than 3 blobs left, marker crertainly not detectable, exit
         if len(blobArea) < 4:
-            return (psi, theta, fi, algSuccess)
-        # images.append(labelIm)
+            return (rotationVector, translationVector, algSuccess)
+
         ########################################## AREA FILTRATION #################################################
         # Remove blobs that are too small or too big
         delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, area)
-        # images.append(delBlobsIm)
+        
         # Save number of blobs that are present in the image 
         blobNum = len(blobArea)
 
@@ -79,48 +79,32 @@ class blobRadiusAlg:
             x = (int)(blobCenters[i, 0])
             y = (int)(blobCenters[i, 1])
             blobCentersIm[x, y] = 10 * i + 10
-        # images.append(blobCentersIm)
-
+        
         ################################### FIND MARKER BLOBS ###############################
         # Find which blobs belong to marker (if any).
-        marker2Dpoints = self.findMarkerPoints(blobCenters)# ,True, 5)
-        # images.append(imNoisePoints)
-        # print(markerPoints)
-        # showImages([img, imageWithPoints(markerPoints, 120, 160)], 1, 2)
-        f = 0.05 / 12e-6 # pixel uints
+        marker2Dpoints, noisePointsIm = self.findMarkerPoints(blobCenters)
+        f = 0.05 / 12e-6 # COnvert focal length to pixel uints
         cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
         marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
         (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
         if not success:
             return (rotationVector, translationVector, algSuccess)
         
-        (rotationVectorPnP, _) = cv2.Rodrigues(rotationVectorPnP)
+        (rotationVectorPnPRod, _) = cv2.Rodrigues(rotationVectorPnP)
         # rotationVectorPnP = np.transpose(rotationVectorPnP)
-        rotationVector[0] = math.atan2(rotationVectorPnP[0, 1], rotationVectorPnP[0, 0])
-        rotationVector[1] = math.asin(-rotationVectorPnP[0, 2])
-        rotationVector[2] = math.atan2(rotationVectorPnP[1, 2], rotationVectorPnP[2, 2])
+        rotationVector[0] = math.atan2(rotationVectorPnPRod[0, 1], rotationVectorPnPRod[0, 0])
+        rotationVector[1] = math.asin(-rotationVectorPnPRod[0, 2])
+        rotationVector[2] = math.atan2(rotationVectorPnPRod[1, 2], rotationVectorPnPRod[2, 2])
         algSuccess = True
-        # print("Success: ", success)
-        # print("Rotation Vector:\n {0}".format(rotation_vector))
-        # print("Translation Vector:\n {0}".format(translation_vector))
-        # (nose_end_point2D, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, 1.0)]), rotation_vector, translation_vector, cameraMatrix, None)
- 
-        # imagePnP = np.copy(img)
-        # for p in marker2Dpoints:
-        #     cv2.circle(imagePnP, (int(p[1]), int(p[0])), 2, (0,0,255), -1)
-        
-        # p1 = ( int(marker2Dpoints[0][1]), int(marker2Dpoints[0][0]))
-        # p2 = ( int(nose_end_point2D[0][0][1]), int(nose_end_point2D[0][0][0]))
-        
-        # cv2.line(imagePnP, p1, p2, (255,0,0), 1)
-        # images.append(imagePnP)
-        # Display image
-        # tytul = "Algorytm przetwarzania obrazu 1"
-        # podtytuly = ["Obraz oryfinalny", "Progowanie", "Etykietowanie", "Usunięcie plam", "Centra plam", "Dodanie losowych punktów", "Camera Pose Estimation"]
-        # showImages(images, 3, 3, tytul, podtytuly)
-       # cv2.imshow("Output", img)
-        #cv2.waitKey(0)
 
+        if displayImage:
+            PnPIm = imagePnPoverlay(img, marker2Dpoints, rotationVectorPnP, translationVector, cameraMatrix)
+            images = [img, binaryIm, labelIm, delBlobsIm, blobCentersIm, noisePointsIm, PnPIm]
+            tytul = "Algorytm przetwarzania obrazu 1"
+            podtytuly = ["Obraz oryfinalny", "Progowanie", "Etykietowanie", "Usunięcie plam", "Centra plam", "Dodanie losowych punktów", "Camera Pose Estimation"]
+            showImages(images, 3, 3, tytul, podtytuly)
+            cv2.imshow("Output", img)
+            cv2.waitKey(0)
 
         return (rotationVector, translationVector, algSuccess)
 
@@ -309,7 +293,7 @@ class blobRadiusAlg:
             tmpCenters = self.addRandomPoints(centers, randPointNum)
         else:
             tmpCenters = centers
-        # im = imageWithPoints(tmpCenters, 120, 160)
+        im = imageWithPoints(tmpCenters, 120, 160)
         blobNum = tmpCenters.shape[0]
         tripletNum = blobNum**3 - 3*blobNum**2 + 2*blobNum # n * (n-1) * (n-2)
         pointTriplets = np.zeros((tripletNum,3))
@@ -363,13 +347,7 @@ class blobRadiusAlg:
                 markerPoints[2,:] = tmpCenters[pointTriplets[indices[i,0], 2],:]
                 markerPoints[3,:] = tmpCenters[otherPoints  [indices[i,0], 0],:]
 
-        #im = np.zeros((indices.shape[0], 120, 160))
-        #imList = [img]
-        #for i in range(im.shape[0]):
-        #    imList.append(im[i,:,:])
-        #showImages(imList, 1, len(imList))
-
-        return markerPoints.astype(int)# , im
+        return markerPoints.astype(int), im
     
     def addRandomPoints(self, points, num, maxX=160, maxY=120):
         """
@@ -393,6 +371,6 @@ class blobRadiusAlg:
         addedPoints = np.zeros((num, 2))
         randX = np.random.randint(0, maxX, (num, 1))
         randY = np.random.randint(0, maxY, (num, 1))
-        addedPoints[:,0] = randX.ravel()
-        addedPoints[:,1] = randY.ravel()
+        addedPoints[:,0] = randY.ravel()
+        addedPoints[:,1] = randX.ravel()
         return np.append(points, addedPoints, axis=0)

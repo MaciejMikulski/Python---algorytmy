@@ -3,6 +3,7 @@ import os
 import re
 from typing import List
 
+import cv2
 import numpy as np
 from skimage.io import imread
 import matplotlib.pyplot as plt
@@ -115,8 +116,24 @@ def imageWithPoints(points, imHeight, imWidth, backgroundIm=None):
     pointValues = np.linspace(0, 255, pointNum+1)
 
     for i in range(pointNum):
-        im[tmpPoints[i,1], tmpPoints[i,0]] = pointValues[i+1]
+        im[tmpPoints[i,0], tmpPoints[i,1]] = pointValues[i+1]
     return im
+
+def imagePnPoverlay(img, marker2Dpoints, rotVect, transVect, cameraMatrix):
+    """
+    This method append marker points onto image and draws a vector normal to the marker surface.
+    """
+    imagePnP = np.copy(img)
+    (lineEndPoint, _) = cv2.projectPoints(np.array([(0.0, 0.0, 1.0)]), rotVect, transVect, cameraMatrix, None)
+
+    for p in marker2Dpoints:
+        cv2.circle(imagePnP, (int(p[1]), int(p[0])), 2, (0,0,255), -1)
+    
+    p1 = ( int(marker2Dpoints[0][1]), int(marker2Dpoints[0][0]))
+    p2 = ( int(lineEndPoint[0][0][1]), int(lineEndPoint[0][0][0]))
+    
+    cv2.line(imagePnP, p1, p2, (255,0,0), 1)
+    return imagePnP
 
 def unevenVectorsToArray(v):
     """
@@ -128,3 +145,4 @@ def unevenVectorsToArray(v):
     out = np.zeros(mask.shape,dtype=int)
     out[mask] = np.concatenate(v)
     return out
+
