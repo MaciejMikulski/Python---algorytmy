@@ -1,13 +1,14 @@
 from threshold import *
 from helperFunctions import *
-from blobRadiusAlg import *
+from visualAlgorithm import *
+
+from skimage.feature import peak_local_max
+import scipy.ndimage as ndimage
+import scipy.ndimage.filters as filters
+
 
 import os
 import numpy as np
-
-#from sklearn.cluster import KMeans
-#from sklearn.metrics import davies_bouldin_score
-#from sklearn.metrics import silhouette_score
 
 #usedMarkerType = "A"
 usedMarkerType = "B"
@@ -35,8 +36,14 @@ else:
 #          Distances: 2        25        3        35        4        45        5        55
 markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5.0: 80, 55.0: 80}
 
-blobAlg = blobRadiusAlg()
-(rot, trans, stat) = blobAlg.PnPAlgorithm(images[450,:,:], True)
+visualAlg = visualAlgorithm()
+
+#coordinates = peak_local_max(org_im, min_distance=10)
+#peak_im = imageWithPoints(coordinates, 120, 160)
+#showImages([org_im, peak_im], 1, 2)
+
+
+(rot, trans, stat) = visualAlg.blobAlgorithm(images[450,:,:], True)
 print("Alg status: ", stat)
 print("Rotation: ", rot)
 print("Translation: ", trans)

@@ -1,3 +1,4 @@
+from enum import Enum
 import math
 import random
 
@@ -7,15 +8,28 @@ import cv2
 from helperFunctions import *
 from threshold import *
 
+class AlgorithmType(Enum):
+    ALGORITHM_BLOB = 1
+    ALGORITHM_PEAK = 2
+    ALGORITHM_NEURAL = 3
 
-class blobRadiusAlg:
+class visualAlgorithm:
 
+    def __init__(self, algType: AlgorithmType):
+        self._algorithmType = algType
 
-    def PnPAlgorithm(self, img, displayImage=False, markerType=2):
+    def execute(self, img, markerType=2, dispImg=False):
+        if self._algorithmType == AlgorithmType.ALGORITHM_BLOB:
+            pass
+        elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK:
+            pass
+        elif self._algorithmType == AlgorithmType.ALGORITHM_NEURAL:
+            pass
+
+    def blobAlgorithm(self, img, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
-        detected blobs and estimating camera orientation with the use of
-        PnP method.
+        detected blobs.
 
         Parameters
         ----------
@@ -49,8 +63,40 @@ class blobRadiusAlg:
         binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
         
         ############################### CONNECTED COMPONENT LABELING ########################################
-        # Label all blobs on the image ang get their parameters
-        labelIm, blobNum = label(binaryIm, background=0, connectivity=1, return_num=True)
+        labelIm, blobNum, blobArea, boundingBox = self._detectBlobs(binaryIm) # Label all blobs on the image ang get their 
+        if blobNum < 4:
+            return (rotationVector, translationVector, algSuccess)
+
+        ########################################## AREA FILTRATION #################################################
+        delBlobsIm, blobArea, blobBoundBox = self._removeBlobsArea(labelIm, blobArea, boundingBox, area) # Remove blobs that are too small or too big
+
+        ################################### BLOB CENTERS CALCULATION ###############################
+        blobCenters = self._getBlobCenterCoords(blobBoundBox) # Find coordinates of blob centers
+        if displayImage: blobCentersIm = imageWithPoints(blobCenters, 120, 160) # And append them to an image
+        
+        ################################### FIND MARKER BLOBS ###############################
+        marker2Dpoints, noisePointsIm = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
+
+        ################################### PERSPECTIVE-N-POINT ###############################
+        f = 0.05 / 12e-6 # Convert focal length to pixel uints
+        cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
+        marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
+        (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
+        if not success:
+            return (rotationVector, translationVector, algSuccess)
+
+        rotationVector = self._rotationVectRodriguesToEuler(rotationVectorPnP) # Calculate Euler angles from Rodrigues angles 
+        algSuccess = True
+
+        if displayImage:
+            PnPIm = imagePnPoverlay(img, marker2Dpoints, rotationVectorPnP, translationVector, cameraMatrix)
+            self._displayAlgorithmStages([img, binaryIm, labelIm, delBlobsIm, blobCentersIm, noisePointsIm, PnPIm])            
+
+        return (rotationVector, translationVector, algSuccess)
+
+    ################################# CCL HELPER FUNCTIONS #################################
+    def _detectBlobs(self, img):
+        labelIm, blobNum = label(img, background=0, connectivity=1, return_num=True)
         blobProperties = regionprops(labelIm)
         # Get area and bounding box of all the blobs
         blobArea = np.zeros((blobNum,))
@@ -58,57 +104,9 @@ class blobRadiusAlg:
         for i in range(blobNum):
             blobArea[i] = blobProperties[i].area
             boundingBox[i,:] = np.array(blobProperties[i].bbox)
-        # If threre are less than 3 blobs left, marker crertainly not detectable, exit
-        if len(blobArea) < 4:
-            return (rotationVector, translationVector, algSuccess)
+        return labelIm, blobNum, blobArea, boundingBox
 
-        ########################################## AREA FILTRATION #################################################
-        # Remove blobs that are too small or too big
-        delBlobsIm, blobArea, blobBoundBox = self.removeBlobsArea(labelIm, blobArea, boundingBox, area)
-        
-        # Save number of blobs that are present in the image 
-        blobNum = len(blobArea)
-
-        ################################### BLOB CENTERS CALCULATION ###############################
-        # Find coordinates of blob centers
-        blobCenters = self.getBlobCenterCoords(blobBoundBox)
-        blobCenters = blobCenters.astype(int)
-        # And append them to an image
-        blobCentersIm = np.zeros_like(delBlobsIm)
-        for i in range(len(blobCenters)):
-            x = (int)(blobCenters[i, 0])
-            y = (int)(blobCenters[i, 1])
-            blobCentersIm[x, y] = 10 * i + 10
-        
-        ################################### FIND MARKER BLOBS ###############################
-        # Find which blobs belong to marker (if any).
-        marker2Dpoints, noisePointsIm = self.findMarkerPoints(blobCenters)
-        f = 0.05 / 12e-6 # COnvert focal length to pixel uints
-        cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
-        marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
-        (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
-        if not success:
-            return (rotationVector, translationVector, algSuccess)
-        
-        (rotationVectorPnPRod, _) = cv2.Rodrigues(rotationVectorPnP)
-        # rotationVectorPnP = np.transpose(rotationVectorPnP)
-        rotationVector[0] = math.atan2(rotationVectorPnPRod[0, 1], rotationVectorPnPRod[0, 0])
-        rotationVector[1] = math.asin(-rotationVectorPnPRod[0, 2])
-        rotationVector[2] = math.atan2(rotationVectorPnPRod[1, 2], rotationVectorPnPRod[2, 2])
-        algSuccess = True
-
-        if displayImage:
-            PnPIm = imagePnPoverlay(img, marker2Dpoints, rotationVectorPnP, translationVector, cameraMatrix)
-            images = [img, binaryIm, labelIm, delBlobsIm, blobCentersIm, noisePointsIm, PnPIm]
-            tytul = "Algorytm przetwarzania obrazu 1"
-            podtytuly = ["Obraz oryfinalny", "Progowanie", "Etykietowanie", "Usunięcie plam", "Centra plam", "Dodanie losowych punktów", "Camera Pose Estimation"]
-            showImages(images, 3, 3, tytul, podtytuly)
-            cv2.imshow("Output", img)
-            cv2.waitKey(0)
-
-        return (rotationVector, translationVector, algSuccess)
-
-    def removeBlobsArea(self, img, areas, bboxes, expectArea):
+    def _removeBlobsArea(self, img, areas, bboxes, expectArea):
         """
         This method removes blobs on the image that have area smaller or bigger than specified.
         It also removes corresponding data in area an bounding box arrays.
@@ -152,7 +150,7 @@ class blobRadiusAlg:
                     deletedBlobsIm[x][y] = 0
         return deletedBlobsIm, rmAreas, rmBboxes
 
-    def getBlobCenterCoords(self, bboxes):
+    def _getBlobCenterCoords(self, bboxes):
         """
         Returns coordinates of blobs with given bounding boxes.
 
@@ -177,24 +175,137 @@ class blobRadiusAlg:
             centers[i, 0] = x
             centers[i, 1] = y
 
-        return np.array(centers)
+        return np.array(centers).astype(int)
 
-    def calculateAnglePoints(self, p1x, p1y, p2x, p2y, p3x, p3y):
-        numerator = p2y*(p1x-p3x) + p1y*(p3x-p2x) + p3y*(p2x-p1x)
-        denominator = (p2x-p1x)*(p1x-p3x) + (p2y-p1y)*(p1y-p3y)
-        eps = 0.001
-        if -eps < denominator < eps: denominator = 0.001
-        ratio = numerator / denominator
+    ################################# PnP HELPER FUNCTIONS #################################
+    def _findMarkerPoints(self, centers, addRandPoints=False, randPointNum=0):
+        """
+        This method removes returns 4 points coordinates that make up marker.
+        Points are always ordered: P0, P1, P2, P3.
 
-        angleRad = math.atan(ratio)
-        angleDeg = (angleRad*180)/math.pi;
+        Parameters
+        ----------
+        centers: ndarray
+            2D array containing coordinates of all blob centers detected in the image
 
-        if angleDeg < 0.0 :
-            angleDeg = 180.0 + angleDeg
+        Returns
+        ----------
+        ndarray containing coordinates of points that make up marker in oreder: P0, P1, P2, P3.
+        If no marker is detected all points have coordinates (0,0)
+        """
+        markerPoints = np.zeros((4,2))
+        if addRandPoints:
+            tmpCenters = self._addRandomPoints(centers, randPointNum)
+        else:
+            tmpCenters = centers
+        im = imageWithPoints(tmpCenters, 120, 160)
+        blobNum = tmpCenters.shape[0]
+        tripletNum = blobNum**3 - 3*blobNum**2 + 2*blobNum # n * (n-1) * (n-2)
+        pointTriplets = np.zeros((tripletNum,3))
+        # Store indexes of other points to use them in checking which one may fit the vector base
+        otherPoints = np.zeros((tripletNum,blobNum-3))
+        cnt = 0
+        possibleIndexes = np.arange(blobNum)
+        for i in range(blobNum):
+            for j in range(blobNum):
+                for k in range(blobNum):
+                    if i != j and j != k and i != k:
+                        pointTriplets[cnt, 0] = i
+                        pointTriplets[cnt, 1] = j
+                        pointTriplets[cnt, 2] = k
+                        mask = np.isin(possibleIndexes, pointTriplets[cnt,:], True, True)
+                        otherPoints[cnt,:] = possibleIndexes[mask]
+                        cnt += 1
+        pointTriplets = pointTriplets.astype(int)
+        otherPoints = otherPoints.astype(int)
+        
+        # Calculate predicted placement of fourth point
+        expectedP3 = np.zeros((tripletNum, 2))
+        distanceErr = np.zeros((tripletNum, otherPoints.shape[1]))
+        crossProducts = np.zeros((tripletNum,))
+        for i in range(tripletNum):
+            # Get coordinates of points from triplet triplets
+            p0 = tmpCenters[pointTriplets[i, 0],:]
+            p1 = tmpCenters[pointTriplets[i, 1],:]
+            p2 = tmpCenters[pointTriplets[i, 2],:]
+            # Calculate base vectors
+            v0 = p1 - p0
+            v1 = p2 - p1
+            expectedP3[i,:] = p0 + 0.5 * (v1 - v0)
+            # Check for correct orientation of base vectors
+            crossProducts[i] = np.cross(v0,v1)
+            # Calculate distance of predicted points to all other (not in triplet) points
+            for j in range(otherPoints.shape[1]):
+                pa = expectedP3[i,:]
+                pb = tmpCenters[otherPoints[i,j],:]
+                distanceErr[i,j] = math.sqrt((pa[0]-pb[0])**2 + (pa[1]-pb[1])**2)
 
-        return angleDeg
+        # TODO: add selection based on absolute value of min error and return if it is too big
+        # Find the indices of all occurrences of the minimum value
+        indices = np.argwhere(distanceErr == np.min(distanceErr))
 
-    def getBlobAngles(self, centers, mode='All'):
+        # Perform final selection of marker points
+        for i in range(indices.shape[0]):
+            if crossProducts[indices[i,0]] < 0.0:
+                markerPoints[0,:] = tmpCenters[pointTriplets[indices[i,0], 0],:]
+                markerPoints[1,:] = tmpCenters[pointTriplets[indices[i,0], 1],:]
+                markerPoints[2,:] = tmpCenters[pointTriplets[indices[i,0], 2],:]
+                markerPoints[3,:] = tmpCenters[otherPoints  [indices[i,0], 0],:]
+
+        return markerPoints.astype(int), im
+    
+    def _addRandomPoints(self, points, num, maxX=160, maxY=120):
+        """
+        This method adds specified numer of points to an array.
+
+        Parameters
+        ----------
+        points: ndarray
+            Array of points to which new ones should be appended. Each row holds point
+            position (x, y)
+        num: int
+            Number of points that should be added to the given array.
+        maxX: int
+            Maximum posiible value of x coordinate.
+        maxY: int
+            Maximum posiible value of y coordinate.
+        Returns
+        ----------
+        ndarray: Array with appended points.
+        """
+        addedPoints = np.zeros((num, 2))
+        randX = np.random.randint(0, maxX, (num, 1))
+        randY = np.random.randint(0, maxY, (num, 1))
+        addedPoints[:,0] = randY.ravel()
+        addedPoints[:,1] = randX.ravel()
+        return np.append(points, addedPoints, axis=0)
+
+    def _rotationVectRodriguesToEuler(self, rotVectRodrugies):
+        tmpVect = np.zeros((3,))
+        (rotationVectorPnPRod, _) = cv2.Rodrigues(rotVectRodrugies)
+        # rotVectRodrugies = np.transpose(rotationVectorPnP)
+        tmpVect[0] = math.atan2(rotationVectorPnPRod[0, 1], rotationVectorPnPRod[0, 0])
+        tmpVect[1] = math.asin(-rotationVectorPnPRod[0, 2])
+        tmpVect[2] = math.atan2(rotationVectorPnPRod[1, 2], rotationVectorPnPRod[2, 2])
+        return tmpVect
+
+    ################# OLD METHODS FOR STAR TRACKER INSPIRED ALGORITHM - CURRENTLY NOT USED #################
+    def _calculateAnglePoints(self, p1x, p1y, p2x, p2y, p3x, p3y):
+            numerator = p2y*(p1x-p3x) + p1y*(p3x-p2x) + p3y*(p2x-p1x)
+            denominator = (p2x-p1x)*(p1x-p3x) + (p2y-p1y)*(p1y-p3y)
+            eps = 0.001
+            if -eps < denominator < eps: denominator = 0.001
+            ratio = numerator / denominator
+
+            angleRad = math.atan(ratio)
+            angleDeg = (angleRad*180)/math.pi;
+
+            if angleDeg < 0.0 :
+                angleDeg = 180.0 + angleDeg
+
+            return angleDeg
+
+    def _getBlobAngles(self, centers, mode='All'):
         """
         This function calculates all angles between combinations of 3 center points.
 
@@ -269,108 +380,12 @@ class blobRadiusAlg:
             p2y = centers[anglesIndexes[i, 1], 1]
             p3x = centers[anglesIndexes[i, 2], 0]
             p3y = centers[anglesIndexes[i, 2], 1]
-            angles[i] = self.calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y)
+            angles[i] = self._calculateAnglePoints(p1x, p1y, p2x, p2y, p3x, p3y)
 
-        return angles
-
-    def findMarkerPoints(self, centers, addRandPoints=False, randPointNum=0):
-        """
-        This method removes returns 4 points coordinates that make up marker.
-        Points are always ordered: P0, P1, P2, P3.
-
-        Parameters
-        ----------
-        centers: ndarray
-            2D array containing coordinates of all blob centers detected in the image
-
-        Returns
-        ----------
-        ndarray containing coordinates of points that make up marker in oreder: P0, P1, P2, P3.
-        If no marker is detected all points have coordinates (0,0)
-        """
-        markerPoints = np.zeros((4,2))
-        if addRandPoints:
-            tmpCenters = self.addRandomPoints(centers, randPointNum)
-        else:
-            tmpCenters = centers
-        im = imageWithPoints(tmpCenters, 120, 160)
-        blobNum = tmpCenters.shape[0]
-        tripletNum = blobNum**3 - 3*blobNum**2 + 2*blobNum # n * (n-1) * (n-2)
-        pointTriplets = np.zeros((tripletNum,3))
-        # Store indexes of other points to use them in checking which one may fit the vector base
-        otherPoints = np.zeros((tripletNum,blobNum-3))
-        cnt = 0
-        possibleIndexes = np.arange(blobNum)
-        for i in range(blobNum):
-            for j in range(blobNum):
-                for k in range(blobNum):
-                    if i != j and j != k and i != k:
-                        pointTriplets[cnt, 0] = i
-                        pointTriplets[cnt, 1] = j
-                        pointTriplets[cnt, 2] = k
-                        mask = np.isin(possibleIndexes, pointTriplets[cnt,:], True, True)
-                        otherPoints[cnt,:] = possibleIndexes[mask]
-                        cnt += 1
-        pointTriplets = pointTriplets.astype(int)
-        otherPoints = otherPoints.astype(int)
-        
-        # Calculate predicted placement of fourth point
-        expectedP3 = np.zeros((tripletNum, 2))
-        distanceErr = np.zeros((tripletNum, otherPoints.shape[1]))
-        crossProducts = np.zeros((tripletNum,))
-        for i in range(tripletNum):
-            # Get coordinates of points from triplet triplets
-            p0 = tmpCenters[pointTriplets[i, 0],:]
-            p1 = tmpCenters[pointTriplets[i, 1],:]
-            p2 = tmpCenters[pointTriplets[i, 2],:]
-            # Calculate base vectors
-            v0 = p1 - p0
-            v1 = p2 - p1
-            expectedP3[i,:] = p0 + 0.5 * (v1 - v0)
-            # Check for correct orientation of base vectors
-            crossProducts[i] = np.cross(v0,v1)
-            # Calculate distance of predicted points to all other (not in triplet) points
-            for j in range(otherPoints.shape[1]):
-                pa = expectedP3[i,:]
-                pb = tmpCenters[otherPoints[i,j],:]
-                distanceErr[i,j] = math.sqrt((pa[0]-pb[0])**2 + (pa[1]-pb[1])**2)
-
-        # TODO: add selection based on absolute value of min error and return if it is too big
-        # Find the indices of all occurrences of the minimum value
-        indices = np.argwhere(distanceErr == np.min(distanceErr))
-
-        # Perform final selection of marker points
-        for i in range(indices.shape[0]):
-            if crossProducts[indices[i,0]] < 0.0:
-                markerPoints[0,:] = tmpCenters[pointTriplets[indices[i,0], 0],:]
-                markerPoints[1,:] = tmpCenters[pointTriplets[indices[i,0], 1],:]
-                markerPoints[2,:] = tmpCenters[pointTriplets[indices[i,0], 2],:]
-                markerPoints[3,:] = tmpCenters[otherPoints  [indices[i,0], 0],:]
-
-        return markerPoints.astype(int), im
+        return 
     
-    def addRandomPoints(self, points, num, maxX=160, maxY=120):
-        """
-        This method adds specified numer of points to an array.
-
-        Parameters
-        ----------
-        points: ndarray
-            Array of points to which new ones should be appended. Each row holds point
-            position (x, y)
-        num: int
-            Number of points that should be added to the given array.
-        maxX: int
-            Maximum posiible value of x coordinate.
-        maxY: int
-            Maximum posiible value of y coordinate.
-        Returns
-        ----------
-        ndarray: Array with appended points.
-        """
-        addedPoints = np.zeros((num, 2))
-        randX = np.random.randint(0, maxX, (num, 1))
-        randY = np.random.randint(0, maxY, (num, 1))
-        addedPoints[:,0] = randY.ravel()
-        addedPoints[:,1] = randX.ravel()
-        return np.append(points, addedPoints, axis=0)
+    def _displayAlgorithmStages(self, images):
+        tytul = "Algorytm przetwarzania obrazu 1"
+        podtytuly = ["Obraz oryfinalny", "Progowanie", "Etykietowanie", "Usunięcie plam", "Centra plam", "Dodanie losowych punktów", "Camera Pose Estimation"]
+        showImages(images, 3, 3, tytul, podtytuly)
+        cv2.waitKey(0)
