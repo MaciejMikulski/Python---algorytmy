@@ -1,7 +1,8 @@
 from enum import Enum
 import math
-import random
+import numpy as np
 
+from skimage.feature import peak_local_max
 from skimage.measure import label, regionprops
 import cv2
 
@@ -24,9 +25,8 @@ class visualAlgorithm:
         algImages = []
         if self._algorithmType == AlgorithmType.ALGORITHM_BLOB:
             marker2DPoints, algSuccess, algImages = self._blobAlgorithm(img=img, displayImage=dispImg)
-            pass
         elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK:
-            pass
+            marker2DPoints, algSuccess, algImages = self._peakAlgorithm(img, dispImg)
         elif self._algorithmType == AlgorithmType.ALGORITHM_NEURAL:
             pass
         
@@ -49,7 +49,7 @@ class visualAlgorithm:
 
         return (rotationVector, translationVector, algSuccess)
 
-
+    ################################# ALGORITHMS #################################
     def _blobAlgorithm(self, img, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
@@ -75,8 +75,6 @@ class visualAlgorithm:
         algSuccess: bool
             True if algorith sucessfully detected a marker.
         """
-        rotationVector = np.zeros((3,))
-        translationVector = np.zeros((3,))
         algSuccess: bool = False
         dispImages = []
         # Number of brightest pixels in the image that shall be considered as part of the marker
@@ -87,12 +85,12 @@ class visualAlgorithm:
         binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
         if displayImage: dispImages.append(binaryIm)
         ############################### CONNECTED COMPONENT LABELING ########################################
-        labelIm, blobNum, blobArea, boundingBox = self._detectBlobs(binaryIm) # Label all blobs on the image ang get their 
+        blobNum, blobArea, boundingBox, labelIm = self._detectBlobs(binaryIm) # Label all blobs on the image ang get their 
         if displayImage: dispImages.append(labelIm)
         if blobNum < 4:
-            return (rotationVector, translationVector, algSuccess)
+            return (marker2Dpoints, algSuccess, dispImages)
         ########################################## AREA FILTRATION #################################################
-        delBlobsIm, blobArea, blobBoundBox = self._removeBlobsArea(labelIm, blobArea, boundingBox, area) # Remove blobs that are too small or too big
+        blobArea, blobBoundBox, delBlobsIm = self._removeBlobsArea(labelIm, blobArea, boundingBox, area) # Remove blobs that are too small or too big
         if displayImage: dispImages.append(delBlobsIm)
         ################################### BLOB CENTERS CALCULATION ###############################
         blobCenters = self._getBlobCenterCoords(blobBoundBox) # Find coordinates of blob centers
@@ -104,6 +102,47 @@ class visualAlgorithm:
         if displayImage: dispImages.append(noisePointsIm)
         return (marker2Dpoints, algSuccess, dispImages)
         
+    def _peakAlgorithm(self, img, displayImage=False, markerTYpe=2):
+        """
+        This function performs marker detection based on positions of
+        peaks of input image brightness.
+
+        Parameters
+        ----------
+        img : ndarray
+            Gray-scale image to be processed.
+        displayImage : bool
+            If true, images with all stages of algorithm are displayed at the end.
+        markerType : int
+            Describes type of marker to be detected.
+                1 - marker A (Maciej's marker)
+                2 - marker B (Olgierd's marker)
+
+        Returns
+        ----------
+        marker2DPoints: ndarray
+            4x2 array ontaining (x,y) coordinates of marker segments.
+        algSuccess: bool
+            True if algorith sucessfully detected a marker.
+        dispImages: List
+            List of images generated on different stages of the algorithm.
+        """
+        marker2Dpoints = np.zeros((4,2))
+        algSuccess: bool = False
+        dispImages = []
+        # Minimum distance between peaks in input image brightness. Peaks closer than this value will not be detected.
+        peakMinDistance = 10
+
+        peakCoordinates = peak_local_max(img, min_distance=peakMinDistance)
+        if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
+        if peakCoordinates.shape[0] < 4:
+            return (marker2Dpoints, algSuccess, dispImages)
+
+        ################################### FIND MARKER BLOBS ###############################
+        marker2Dpoints, noisePointsIm = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
+        algSuccess = True
+        if displayImage: dispImages.append(noisePointsIm)
+        return (marker2Dpoints, algSuccess, dispImages)
 
     ################################# CCL HELPER FUNCTIONS #################################
     def _detectBlobs(self, img):
@@ -115,9 +154,9 @@ class visualAlgorithm:
         for i in range(blobNum):
             blobArea[i] = blobProperties[i].area
             boundingBox[i,:] = np.array(blobProperties[i].bbox)
-        return labelIm, blobNum, blobArea, boundingBox
+        return blobNum, blobArea, boundingBox, labelIm
 
-    def _removeBlobsArea(self, img, areas, bboxes, expectArea):
+    def _removeBlobsArea(self, img, areas, bboxes, expectArea, dispIm=False):
         """
         This method removes blobs on the image that have area smaller or bigger than specified.
         It also removes corresponding data in area an bounding box arrays.
@@ -152,14 +191,16 @@ class visualAlgorithm:
         rmBboxes = np.delete(bboxes, removeIndexes, axis=0)
 
         # Set removed blobs to 0 - background color
-        deletedBlobsIm = np.copy(img)
-        removeIndexes = np.array(removeIndexes) + 1
-        for x in range(deletedBlobsIm.shape[0]):
-            for y in range(deletedBlobsIm.shape[1]):
-                # Indexes start from 0, but blob labels start from 1, add 1 to index
-                if (deletedBlobsIm[x][y]) in removeIndexes:
-                    deletedBlobsIm[x][y] = 0
-        return deletedBlobsIm, rmAreas, rmBboxes
+        if dispIm:
+            deletedBlobsIm = np.copy(img)
+            removeIndexes = np.array(removeIndexes) + 1
+            for x in range(deletedBlobsIm.shape[0]):
+                for y in range(deletedBlobsIm.shape[1]):
+                    # Indexes start from 0, but blob labels start from 1, add 1 to index
+                    if (deletedBlobsIm[x][y]) in removeIndexes:
+                        deletedBlobsIm[x][y] = 0
+            return rmAreas, rmBboxes, deletedBlobsIm
+        else: return rmAreas, rmBboxes
 
     def _getBlobCenterCoords(self, bboxes):
         """
@@ -399,4 +440,3 @@ class visualAlgorithm:
         tytul = "Algorytm przetwarzania obrazu 1"
         podtytuly = ["Obraz oryfinalny", "Progowanie", "Etykietowanie", "Usunięcie plam", "Centra plam", "Dodanie losowych punktów", "Camera Pose Estimation"]
         showImages(images, 3, 3, tytul, podtytuly)
-        cv2.waitKey(0)
