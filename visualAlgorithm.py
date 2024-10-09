@@ -19,14 +19,38 @@ class visualAlgorithm:
         self._algorithmType = algType
 
     def execute(self, img, markerType=2, dispImg=False):
+        marker2DPoints = []
+        algSuccess = False
+        algImages = []
         if self._algorithmType == AlgorithmType.ALGORITHM_BLOB:
+            marker2DPoints, algSuccess, algImages = self._blobAlgorithm(img=img, displayImage=dispImg)
             pass
         elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK:
             pass
         elif self._algorithmType == AlgorithmType.ALGORITHM_NEURAL:
             pass
+        
+        ################################### PERSPECTIVE-N-POINT ###############################
+        f = 0.05 / 12e-6 # Convert focal length to pixel uints
+        cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
+        marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
+        (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2DPoints.astype(np.float32), cameraMatrix, None)
+        if not success:
+            return (rotationVector, translationVector, algSuccess)
 
-    def blobAlgorithm(self, img, displayImage=False, markerType=2):
+        rotationVector = self._rotationVectRodriguesToEuler(rotationVectorPnP) # Calculate Euler angles from Rodrigues angles 
+        algSuccess = True
+        
+        if dispImg:
+            PnPIm = imagePnPoverlay(img, marker2DPoints, rotationVectorPnP, translationVector, cameraMatrix)
+            algImages.insert(0, img)
+            algImages.append(PnPIm)
+            self._displayAlgorithmStages(algImages)            
+
+        return (rotationVector, translationVector, algSuccess)
+
+
+    def _blobAlgorithm(self, img, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
         detected blobs.
@@ -54,45 +78,32 @@ class visualAlgorithm:
         rotationVector = np.zeros((3,))
         translationVector = np.zeros((3,))
         algSuccess: bool = False
-
+        dispImages = []
         # Number of brightest pixels in the image that shall be considered as part of the marker
         # Found in simulation on test images.
         area = 380 
 
         ####################################### THRESHOLDING ############################################
         binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
-        
+        if displayImage: dispImages.append(binaryIm)
         ############################### CONNECTED COMPONENT LABELING ########################################
         labelIm, blobNum, blobArea, boundingBox = self._detectBlobs(binaryIm) # Label all blobs on the image ang get their 
+        if displayImage: dispImages.append(labelIm)
         if blobNum < 4:
             return (rotationVector, translationVector, algSuccess)
-
         ########################################## AREA FILTRATION #################################################
         delBlobsIm, blobArea, blobBoundBox = self._removeBlobsArea(labelIm, blobArea, boundingBox, area) # Remove blobs that are too small or too big
-
+        if displayImage: dispImages.append(delBlobsIm)
         ################################### BLOB CENTERS CALCULATION ###############################
         blobCenters = self._getBlobCenterCoords(blobBoundBox) # Find coordinates of blob centers
-        if displayImage: blobCentersIm = imageWithPoints(blobCenters, 120, 160) # And append them to an image
+        if displayImage: dispImages.append(imageWithPoints(blobCenters, 120, 160)) # And append them to an image
         
         ################################### FIND MARKER BLOBS ###############################
         marker2Dpoints, noisePointsIm = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
-
-        ################################### PERSPECTIVE-N-POINT ###############################
-        f = 0.05 / 12e-6 # Convert focal length to pixel uints
-        cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
-        marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
-        (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2Dpoints.astype(np.float32), cameraMatrix, None)
-        if not success:
-            return (rotationVector, translationVector, algSuccess)
-
-        rotationVector = self._rotationVectRodriguesToEuler(rotationVectorPnP) # Calculate Euler angles from Rodrigues angles 
         algSuccess = True
-
-        if displayImage:
-            PnPIm = imagePnPoverlay(img, marker2Dpoints, rotationVectorPnP, translationVector, cameraMatrix)
-            self._displayAlgorithmStages([img, binaryIm, labelIm, delBlobsIm, blobCentersIm, noisePointsIm, PnPIm])            
-
-        return (rotationVector, translationVector, algSuccess)
+        if displayImage: dispImages.append(noisePointsIm)
+        return (marker2Dpoints, algSuccess, dispImages)
+        
 
     ################################# CCL HELPER FUNCTIONS #################################
     def _detectBlobs(self, img):
