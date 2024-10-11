@@ -98,10 +98,9 @@ class visualAlgorithm:
         
         ################################### FIND MARKER BLOBS ###############################
         marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
-        if markerFindSuccess:
-            algSuccess = True
-        else:
-            return marker2Dpoints, algSuccess, dispImages
+        if markerFindSuccess: algSuccess = True
+        else: return marker2Dpoints, algSuccess, dispImages
+        
         if displayImage: dispImages.append(noisePointsIm)
         return marker2Dpoints, algSuccess, dispImages
         
@@ -142,10 +141,12 @@ class visualAlgorithm:
             return (marker2Dpoints, algSuccess, dispImages)
 
         ################################### FIND MARKER BLOBS ###############################
-        marker2Dpoints, noisePointsIm = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
-        algSuccess = True
+        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
+        if markerFindSuccess: algSuccess = True
+        else: return marker2Dpoints, algSuccess, dispImages
+
         if displayImage: dispImages.append(noisePointsIm)
-        return (marker2Dpoints, algSuccess, dispImages)
+        return marker2Dpoints, algSuccess, dispImages
 
     ################################# CCL HELPER FUNCTIONS #################################
     def _detectBlobs(self, img):
