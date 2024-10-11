@@ -90,17 +90,20 @@ class visualAlgorithm:
         if blobNum < 4:
             return (marker2Dpoints, algSuccess, dispImages)
         ########################################## AREA FILTRATION #################################################
-        blobArea, blobBoundBox, delBlobsIm = self._removeBlobsArea(labelIm, blobArea, boundingBox, area) # Remove blobs that are too small or too big
+        blobArea, blobBoundBox, delBlobsIm = self._removeBlobsArea(labelIm, blobArea, boundingBox, area, displayImage) # Remove blobs that are too small or too big
         if displayImage: dispImages.append(delBlobsIm)
         ################################### BLOB CENTERS CALCULATION ###############################
         blobCenters = self._getBlobCenterCoords(blobBoundBox) # Find coordinates of blob centers
         if displayImage: dispImages.append(imageWithPoints(blobCenters, 120, 160)) # And append them to an image
         
         ################################### FIND MARKER BLOBS ###############################
-        marker2Dpoints, noisePointsIm = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
-        algSuccess = True
+        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
+        if markerFindSuccess:
+            algSuccess = True
+        else:
+            return marker2Dpoints, algSuccess, dispImages
         if displayImage: dispImages.append(noisePointsIm)
-        return (marker2Dpoints, algSuccess, dispImages)
+        return marker2Dpoints, algSuccess, dispImages
         
     def _peakAlgorithm(self, img, displayImage=False, markerTYpe=2):
         """
@@ -242,10 +245,16 @@ class visualAlgorithm:
 
         Returns
         ----------
-        ndarray containing coordinates of points that make up marker in oreder: P0, P1, P2, P3.
-        If no marker is detected all points have coordinates (0,0)
+        ndarray containing coordinates of points that make up marker in order: P0, P1, P2, P3.
+        If no marker is detected all points have coordinates (0,0).
+
+        ndarray containing image with selected points.
+
+        bool indicating if the algorithm was successful. 
         """
+        fourthBlobMaxDistanceError = 5.0
         markerPoints = np.zeros((4,2))
+        success = False
         if addRandPoints:
             tmpCenters = self._addRandomPoints(centers, randPointNum)
         else:
@@ -294,17 +303,21 @@ class visualAlgorithm:
 
         # TODO: add selection based on absolute value of min error and return if it is too big
         # Find the indices of all occurrences of the minimum value
-        indices = np.argwhere(distanceErr == np.min(distanceErr))
+        if np.min(distanceErr) < fourthBlobMaxDistanceError:
+            indices = np.argwhere(distanceErr == np.min(distanceErr))
+            success = True
+        else:
+            return markerPoints.astype(int), im, success
 
         # Perform final selection of marker points
         for i in range(indices.shape[0]):
-            if crossProducts[indices[i,0]] < 0.0:
+            if crossProducts[indices[i,0]] < 0.0: # Discad mirror view of the marker
                 markerPoints[0,:] = tmpCenters[pointTriplets[indices[i,0], 0],:]
                 markerPoints[1,:] = tmpCenters[pointTriplets[indices[i,0], 1],:]
                 markerPoints[2,:] = tmpCenters[pointTriplets[indices[i,0], 2],:]
                 markerPoints[3,:] = tmpCenters[otherPoints  [indices[i,0], 0],:]
 
-        return markerPoints.astype(int), im
+        return markerPoints.astype(int), im, success
     
     def _addRandomPoints(self, points, num, maxX=160, maxY=120):
         """
