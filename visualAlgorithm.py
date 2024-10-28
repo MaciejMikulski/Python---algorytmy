@@ -24,19 +24,20 @@ class visualAlgorithm:
         algSuccess = False
         algImages = []
         if self._algorithmType == AlgorithmType.ALGORITHM_BLOB:
-            marker2DPoints, algSuccess, algImages = self._blobAlgorithm(img=img, displayImage=dispImg)
+            marker2DPoints, firstStageSuccess, algImages = self._blobAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
         elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK:
-            marker2DPoints, algSuccess, algImages = self._peakAlgorithm(img, dispImg)
+            marker2DPoints, firstStageSuccess, algImages = self._peakAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
         elif self._algorithmType == AlgorithmType.ALGORITHM_NEURAL:
             pass
-        
+        if not firstStageSuccess:
+            return rotationVector, translationVector, algSuccess
         ################################### PERSPECTIVE-N-POINT ###############################
         f = 0.05 / 12e-6 # Convert focal length to pixel uints
         cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
         marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
         (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2DPoints.astype(np.float32), cameraMatrix, None)
         if not success:
-            return (rotationVector, translationVector, algSuccess)
+            return rotationVector, translationVector, algSuccess
 
         rotationVector = self._rotationVectRodriguesToEuler(rotationVectorPnP) # Calculate Euler angles from Rodrigues angles 
         algSuccess = True
@@ -47,7 +48,7 @@ class visualAlgorithm:
             algImages.append(PnPIm)
             self._displayAlgorithmStages(algImages)            
 
-        return (rotationVector, translationVector, algSuccess)
+        return rotationVector, translationVector, algSuccess
 
     ################################# ALGORITHMS #################################
     def _blobAlgorithm(self, img, displayImage=False, markerType=2):
