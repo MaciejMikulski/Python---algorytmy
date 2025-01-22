@@ -5,7 +5,7 @@ from visualAlgorithm import *
 import os
 
 #usedMarkerType = "A"
-usedMarkerType = "B"
+usedMarkerType = "B" ## TYP 2 MARKERA
 #usedMarkerType = "Bcorrect"
 
 # Path to images folder
@@ -33,6 +33,7 @@ markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5
 visualAlg = visualAlgorithm(AlgorithmType.ALGORITHM_BLOB)
 
 (rot, trans, stat) = visualAlg.execute(img=images[450,:,:], dispImg=True)
+
 print("Alg status: ", stat)
 print("Rotation: ", rot)
 print("Translation: ", trans)

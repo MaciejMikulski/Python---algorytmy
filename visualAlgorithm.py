@@ -23,14 +23,17 @@ class visualAlgorithm:
         marker2DPoints = []
         algSuccess = False
         algImages = []
+
         if self._algorithmType == AlgorithmType.ALGORITHM_BLOB:
             marker2DPoints, firstStageSuccess, algImages = self._blobAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
         elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK:
             marker2DPoints, firstStageSuccess, algImages = self._peakAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
         elif self._algorithmType == AlgorithmType.ALGORITHM_NEURAL:
             pass
+        
         if not firstStageSuccess:
             return rotationVector, translationVector, algSuccess
+        
         ################################### PERSPECTIVE-N-POINT ###############################
         f = 0.05 / 12e-6 # Convert focal length to pixel uints
         cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
