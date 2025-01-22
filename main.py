@@ -1,11 +1,12 @@
 from threshold import *
 from helperFunctions import *
 from visualAlgorithm import *
+from hardwarePeakMax import *
 
 import os
 
 #usedMarkerType = "A"
-usedMarkerType = "B" ## TYP 2 MARKERA
+usedMarkerType = "B"
 #usedMarkerType = "Bcorrect"
 
 # Path to images folder
@@ -30,13 +31,13 @@ else:
 #          Distances: 2        25        3        35        4        45        5        55
 markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5.0: 80, 55.0: 80}
 
-visualAlg = visualAlgorithm(AlgorithmType.ALGORITHM_BLOB)
+visualAlg = visualAlgorithm(AlgorithmType.ALGORITHM_PEAK)
 
-(rot, trans, stat) = visualAlg.execute(img=images[450,:,:], dispImg=True)
-
-print("Alg status: ", stat)
-print("Rotation: ", rot)
-print("Translation: ", trans)
+hardwarePeakMax(images[480, :, :], 100, 6)
+#(rot, trans, stat) = visualAlg.execute(img=images[450,:,:], dispImg=True)
+#print("Alg status: ", stat)
+#print("Rotation: ", rot)
+#print("Translation: ", trans)
 
 
 

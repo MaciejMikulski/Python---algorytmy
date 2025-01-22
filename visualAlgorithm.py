@@ -108,7 +108,7 @@ class visualAlgorithm:
         if displayImage: dispImages.append(noisePointsIm)
         return marker2Dpoints, algSuccess, dispImages
         
-    def _peakAlgorithm(self, img, displayImage=False, markerTYpe=2):
+    def _peakAlgorithm(self, img, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
         peaks of input image brightness.
