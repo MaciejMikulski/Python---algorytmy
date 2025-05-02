@@ -32,7 +32,7 @@ def hardwarePeakMax(img, thres, minDist):
     peakMax = (img == maxFilterOut)
     peakMax &= img > thres
     coords = np.transpose(np.nonzero(peakMax))
-    print(coords)
+    #print(coords)
     numCoords = coords.shape[0]
     removedCoords = []
     # Remove all points that are too clode to each other
@@ -45,8 +45,9 @@ def hardwarePeakMax(img, thres, minDist):
                 break
     removedCoords = np.array(removedCoords)
     coordsFiltered = setdiff_nd(coords, removedCoords)
-    print(coordsFiltered)
-    showImages([img, peakMax, imageWithPoints(coordsFiltered,img.shape[0], img.shape[1])], 1, 3)
+    #print(coordsFiltered)
+    #showImages([img, peakMax, imageWithPoints(coordsFiltered,img.shape[0], img.shape[1])], 1, 3)
+    return coordsFiltered
 
 
 def view1D(a, b): # a, b are arrays

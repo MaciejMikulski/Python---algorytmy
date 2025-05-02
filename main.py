@@ -32,9 +32,9 @@ else:
 markerPresentIndex = {2.0: 40, 25.0: 80, 3.0: 79, 35.0: 80, 4.0: 80, 45.0: 80, 5.0: 80, 55.0: 80}
 
 visualAlg = visualAlgorithm(AlgorithmType.ALGORITHM_PEAK)
-
-hardwarePeakMax(images[480, :, :], 100, 6)
-#(rot, trans, stat) = visualAlg.execute(img=images[450,:,:], dispImg=True)
+showImages([images[450,:,:]], 1, 1)
+#hardwarePeakMax(images[480, :, :], 100, 6)
+(rot, trans, stat) = visualAlg.execute(img=images[450,:,:], dispImg=True)
 #print("Alg status: ", stat)
 #print("Rotation: ", rot)
 #print("Translation: ", trans)
