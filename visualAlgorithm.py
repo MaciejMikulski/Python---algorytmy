@@ -8,13 +8,11 @@ import cv2
 
 from helperFunctions import *
 from threshold import *
-from hardwarePeakMax import *
 
 class AlgorithmType(Enum):
     ALGORITHM_BLOB = 1
     ALGORITHM_PEAK = 2
-    ALGORITHM_PEAK_HW = 3
-    ALGORITHM_NEURAL = 4
+    ALGORITHM_NEURAL = 3
 
 class visualAlgorithm:
 
@@ -25,19 +23,17 @@ class visualAlgorithm:
         marker2DPoints = []
         algSuccess = False
         algImages = []
-        rotationVector = np.array(([0, 0, 0]))
-        translationVector = np.array(([0, 0, 0]))
 
         if self._algorithmType == AlgorithmType.ALGORITHM_BLOB:
             marker2DPoints, firstStageSuccess, algImages = self._blobAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
         elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK:
             marker2DPoints, firstStageSuccess, algImages = self._peakAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
-        elif self._algorithmType == AlgorithmType.ALGORITHM_PEAK_HW:
-            marker2DPoints, firstStageSuccess, algImages = self._peakHwAlgorithm(img=img, displayImage=dispImg, markerType=markerType)
         elif self._algorithmType == AlgorithmType.ALGORITHM_NEURAL:
             pass
+        
         if not firstStageSuccess:
             return rotationVector, translationVector, algSuccess
+        
         ################################### PERSPECTIVE-N-POINT ###############################
         f = 0.05 / 12e-6 # Convert focal length to pixel uints
         cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
@@ -112,7 +108,7 @@ class visualAlgorithm:
         if displayImage: dispImages.append(noisePointsIm)
         return marker2Dpoints, algSuccess, dispImages
         
-    def _peakAlgorithm(self, img, minDist=10, thres=100, displayImage=False, markerType=2):
+    def _peakAlgorithm(self, img, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
         peaks of input image brightness.
@@ -121,11 +117,6 @@ class visualAlgorithm:
         ----------
         img : ndarray
             Gray-scale image to be processed.
-        minDist : int
-            Minimum distance between peaks in input image brightness. From set of peaks that are
-            closer to each other, all except one wil be removed form the output.
-        thres : int
-            Minimum brightnes of the peak to be considered. Useful in rejecting local peaks in the background.
         displayImage : bool
             If true, images with all stages of algorithm are displayed at the end.
         markerType : int
@@ -145,63 +136,16 @@ class visualAlgorithm:
         marker2Dpoints = np.zeros((4,2))
         algSuccess: bool = False
         dispImages = []
+        # Minimum distance between peaks in input image brightness. Peaks closer than this value will not be detected.
+        peakMinDistance = 10
 
-        peakCoordinates = peak_local_max(img, min_distance=minDist, threshold_abs=thres)
+        peakCoordinates = peak_local_max(img, min_distance=peakMinDistance)
         if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
         if peakCoordinates.shape[0] < 4:
             return (marker2Dpoints, algSuccess, dispImages)
 
         ################################### FIND MARKER BLOBS ###############################
-        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
-        if markerFindSuccess: algSuccess = True
-        else: return marker2Dpoints, algSuccess, dispImages
-
-        if displayImage: dispImages.append(noisePointsIm)
-        return marker2Dpoints, algSuccess, dispImages
-
-    def _peakHwAlgorithm(self, img, minDist=10, thres=100, displayImage=False, markerType=2):
-        """
-        This function performs marker detection based on positions of
-        peaks of input image brightness. It uses prototype of hardware 
-        implementation of this algorithm.
-
-        Parameters
-        ----------
-        img : ndarray
-            Gray-scale image to be processed.
-        minDist : int
-            Minimum distance between peaks in input image brightness. From set of peaks that are
-            closer to each other, all except one wil be removed form the output.
-        thres : int
-            Minimum brightnes of the peak to be considered. Useful in rejecting local peaks in the background.
-        displayImage : bool
-            If true, images with all stages of algorithm are displayed at the end.
-        markerType : int
-            Describes type of marker to be detected.
-                1 - marker A (Maciej's marker)
-                2 - marker B (Olgierd's marker)
-
-        Returns
-        ----------
-        marker2DPoints: ndarray
-            4x2 array ontaining (x,y) coordinates of marker segments.
-        algSuccess: bool
-            True if algorith sucessfully detected a marker.
-        dispImages: List
-            List of images generated on different stages of the algorithm.
-        """
-        marker2Dpoints = np.zeros((4,2))
-        algSuccess: bool = False
-        dispImages = []
-
-        ################################## FIND BLOB CENTERS ###############################
-        peakCoordinates = hardwarePeakMax(img, min_distance=minDist, thres=thres)
-        if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
-        if peakCoordinates.shape[0] < 4: # Less than 4 peaks - there is no marker in the image
-            return (marker2Dpoints, algSuccess, dispImages)
-
-        ################################# CHOOSE MARKER POINTS #############################
-        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
+        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
         if markerFindSuccess: algSuccess = True
         else: return marker2Dpoints, algSuccess, dispImages
 
