@@ -8,6 +8,7 @@ import cv2
 
 from helperFunctions import *
 from threshold import *
+from hardwarePeakMax import *
 
 class AlgorithmType(Enum):
     ALGORITHM_BLOB = 1
@@ -137,15 +138,17 @@ class visualAlgorithm:
         algSuccess: bool = False
         dispImages = []
         # Minimum distance between peaks in input image brightness. Peaks closer than this value will not be detected.
-        peakMinDistance = 10
+        peakMinDistance = 5
 
-        peakCoordinates = peak_local_max(img, min_distance=peakMinDistance)
+        #peakCoordinates = peak_local_max(img, min_distance=peakMinDistance, threshold_abs=120)
+        peakCoordinates = hardwarePeakMax(img, 120, peakMinDistance)
+
         if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
         if peakCoordinates.shape[0] < 4:
             return (marker2Dpoints, algSuccess, dispImages)
 
         ################################### FIND MARKER BLOBS ###############################
-        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(blobCenters) # Find which blobs belong to marker (if any).
+        marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
         if markerFindSuccess: algSuccess = True
         else: return marker2Dpoints, algSuccess, dispImages
 
@@ -299,7 +302,8 @@ class visualAlgorithm:
             v1 = p2 - p1
             expectedP3[i,:] = p0 + 0.5 * (v1 - v0)
             # Check for correct orientation of base vectors
-            crossProducts[i] = np.cross(v0,v1)
+            tmp  = np.cross(v0,v1)
+            crossProducts[i] = tmp
             # Calculate distance of predicted points to all other (not in triplet) points
             for j in range(otherPoints.shape[1]):
                 pa = expectedP3[i,:]

@@ -1,0 +1,10 @@
+# Visual Studio Code
+/.vscode/
+
+# Visual Studio work directory
+/.vs/
+# Visual Studio build directory
+/out/
+
+# Common build directories
+/build*/
