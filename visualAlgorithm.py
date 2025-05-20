@@ -15,10 +15,15 @@ class AlgorithmType(Enum):
     ALGORITHM_PEAK = 2
     ALGORITHM_NEURAL = 3
 
+class ImplementationType(Enum):
+    IMPL_SOFTWARE = 1
+    IMPL_HARDWARE = 2
+
 class visualAlgorithm:
 
-    def __init__(self, algType: AlgorithmType):
+    def __init__(self, algType: AlgorithmType, implType: ImplementationType):
         self._algorithmType = algType
+        self._implementatioType = implType
 
     def execute(self, img, markerType=2, dispImg=False):
         marker2DPoints = []
@@ -55,7 +60,7 @@ class visualAlgorithm:
         return rotationVector, translationVector, algSuccess
 
     ################################# ALGORITHMS #################################
-    def _blobAlgorithm(self, img, displayImage=False, markerType=2):
+    def _blobAlgorithm(self, img, implType: ImplementationType, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
         detected blobs.
@@ -64,6 +69,8 @@ class visualAlgorithm:
         ----------
         img : ndarray
             Gray-scale image to be processed.
+        implType: ImplementationType
+            Selects version of Connected Component Association function. Software is SciKit version, Hardware is Link-Run based hardware prototype.
         displayImage : bool
             If true, images with all stages of algorithm are displayed at the end.
         markerType : int
@@ -90,7 +97,8 @@ class visualAlgorithm:
         binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
         if displayImage: dispImages.append(binaryIm)
         ############################### CONNECTED COMPONENT LABELING ########################################
-        blobNum, blobArea, boundingBox, labelIm = self._detectBlobs(binaryIm) # Label all blobs on the image ang get their 
+        # TODO: Add hardware prototype for blob detection
+        blobNum, blobArea, boundingBox, labelIm = self._detectBlobs(binaryIm) # Label all blobs on the image and get their bounding boxes and areas
         if displayImage: dispImages.append(labelIm)
         if blobNum < 4:
             return (marker2Dpoints, algSuccess, dispImages)
@@ -109,7 +117,7 @@ class visualAlgorithm:
         if displayImage: dispImages.append(noisePointsIm)
         return marker2Dpoints, algSuccess, dispImages
         
-    def _peakAlgorithm(self, img, displayImage=False, markerType=2):
+    def _peakAlgorithm(self, img, implType: ImplementationType, displayImage=False, markerType=2):
         """
         This function performs marker detection based on positions of
         peaks of input image brightness.
@@ -118,6 +126,8 @@ class visualAlgorithm:
         ----------
         img : ndarray
             Gray-scale image to be processed.
+        implType: ImplementationType
+            Selects version of peak_local_max function. Software is SciKit version, Hardware is hardware prototype.
         displayImage : bool
             If true, images with all stages of algorithm are displayed at the end.
         markerType : int
@@ -140,8 +150,10 @@ class visualAlgorithm:
         # Minimum distance between peaks in input image brightness. Peaks closer than this value will not be detected.
         peakMinDistance = 5
 
-        #peakCoordinates = peak_local_max(img, min_distance=peakMinDistance, threshold_abs=120)
-        peakCoordinates = hardwarePeakMax(img, 120, peakMinDistance)
+        if implType == ImplementationType.IMPL_SOFTWARE:
+            peakCoordinates = peak_local_max(img, min_distance=peakMinDistance, threshold_abs=120)
+        elif implType == ImplementationType.IMPL_HARDWARE:
+            peakCoordinates = hardwarePeakMax(img, 120, peakMinDistance)
 
         if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
         if peakCoordinates.shape[0] < 4:
