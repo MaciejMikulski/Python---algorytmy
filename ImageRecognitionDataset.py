@@ -39,14 +39,18 @@ class ImageRecognitionDataset(Dataset):
         # Apply transform or default ToTensor
         if self.transform:
             image = self.transform(image)
-        else:
-            image = transforms.ToTensor()(image)  # Converts to shape [1, H, W]
+        #else:
+        #    image = transforms.ToTensor()(image)  # Converts to shape [1, H, W]
 
+        image_np = np.array(image)
+        
         # Extract label
         label = torch.tensor(row['validMarker'], dtype=torch.float32)
-
+        label_np = label.cpu().numpy().astype(np.int32)
+        
         # Extract points
         point_cols = ['X1', 'Y1', 'X2', 'Y2', 'X3', 'Y3', 'X4', 'Y4']
         points = torch.tensor(row[point_cols].values.astype(np.float32), dtype=torch.float32)
+        points_np = points.cpu().numpy().astype(np.int32)
 
-        return image, label, points
+        return image_np, label_np, points_np

@@ -3,10 +3,12 @@ from helperFunctions import *
 from visualAlgorithm import *
 from hardwarePeakMax import *
 from uart import send_to_hardware
+from output_csv import *
 
 import os
 import logging
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 from torch.utils.data import DataLoader
 from ImageRecognitionDataset import *
@@ -20,26 +22,57 @@ log_filename = datetime.now().strftime("logs/log_%Y%m%d_%H%M%S.txt")
 logging.basicConfig(filename=log_filename, level=logging.INFO,
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
-logging.info("Main")
+# Set paths to marker dataset and image data
+csv_file = r"H:\SR\fok-visual-data\Labeling\labeling_marker_B\exported_label_data.csv"
+image_base_dir = r"H:\SR\fok-visual-data\IR_images\Marker_B"
+csv_file = os.path.normpath(csv_file)
+image_base_dir = os.path.normpath(image_base_dir)
 
-send_to_hardware()
-# csv_file = r"H:\SR\fok-visual-data\Labeling\labeling_marker_B\exported_label_data.csv"
-# image_base_dir = r"H:\SR\fok-visual-data\IR_images\Marker_B"
-# 
-# csv_file = os.path.normpath(csv_file)
-# image_base_dir = os.path.normpath(image_base_dir)
-# 
-# dataset = ImageRecognitionDataset(csv_file, image_base_dir)                  # Create dataset
-# dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=4) # Create DataLoader
-# 
-# 
-# visualAlg = visualAlgorithm(AlgorithmType.ALGORITHM_PEAK, ImplementationType.IMPL_SOFTWARE) # Configure algorithm
+dataset = ImageRecognitionDataset(csv_file, image_base_dir)                  # Create dataset
+dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=4) # Create DataLoader
 
 
-#(rot, trans, stat) = visualAlg.execute(img=image_data, dispImg=True)
-#print("Alg status: ", stat)
-#print("Rotation: ", rot)
-#print("Translation: ", trans)
+visualAlg = visualAlgorithm(algType=AlgorithmType.ALGORITHM_PEAK, implType=ImplementationType.IMPL_SOFTWARE) # Configure algorithm
+
+output_csv_filename = create_output_csv(base_dir=r".\test_output")
+
+# Main testing loop
+with open(output_csv_filename, 'a', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+        # Optional: limit max threads if needed
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        for i in range(len(dataset)):
+            print(i)
+            img, has_marker, img_points = dataset[i]
+
+            # Submit both functions to the thread pool
+            future_sw = executor.submit(visualAlg.execute, img)
+            #future_hw = executor.submit(send_to_hardware, img)
+
+            # Wait for results (these run in parallel)
+            sw_R, sw_t, sw_success, sw_points = future_sw.result()
+            #hw_R, hw_t, hw_success, hw_points, hw_time, hw_current, hw_temp = future_hw.result()
+
+            row = [i]
+            row += [has_marker]
+            row += img_points.flatten().tolist()
+
+            row += [sw_success]
+            row += sw_R.flatten().tolist()
+            row += sw_t.flatten().tolist()
+            row += sw_points.flatten().tolist()
+
+            #row += [hw_success]
+            #row += hw_R.flatten().tolist()
+            #row += hw_t.flatten().tolist()
+            #row += hw_points.flatten().tolist()
+            #row += [hw_time, hw_current, hw_temp]
+
+            writer.writerow(row)
+
+print(f"Processing completed. Results saved in: {output_csv_filename}")
+
 
 
 
