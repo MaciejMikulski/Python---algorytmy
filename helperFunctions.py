@@ -89,7 +89,7 @@ def presentImages(images, rows, cols):
         else:
             showImages(images[i:imagesNum,:,:], rows, cols, str(i) + ' - ' + str(imagesNum))
 
-def showImages(images: List[np.ndarray], rows, cols, title='', subtitles=None) -> None:
+def showImages(images: List[np.ndarray], rows=1, cols=1, title='', subtitles=None) -> None:
     n: int = len(images)    
     f = plt.figure(figsize=(10,10))
     f.suptitle(title)

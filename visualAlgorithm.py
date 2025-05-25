@@ -91,10 +91,12 @@ class visualAlgorithm:
             True if algorith sucessfully detected a marker.
         """
         algSuccess: bool = False
+        marker2Dpoints = np.zeros((4,2))
         dispImages = []
         # Number of brightest pixels in the image that shall be considered as part of the marker
         # Found in simulation on test images.
         area = 380 
+        maxBlobNum = 15
 
         ####################################### THRESHOLDING ############################################
         binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
@@ -108,6 +110,8 @@ class visualAlgorithm:
         ########################################## AREA FILTRATION #################################################
         blobArea, blobBoundBox, delBlobsIm = self._removeBlobsArea(labelIm, blobArea, boundingBox, area, displayImage) # Remove blobs that are too small or too big
         if displayImage: dispImages.append(delBlobsIm)
+        if blobArea.shape[0] < 4 or blobArea.shape[0] > maxBlobNum:
+            return (marker2Dpoints, algSuccess, dispImages)
         ################################### BLOB CENTERS CALCULATION ###############################
         blobCenters = self._getBlobCenterCoords(blobBoundBox) # Find coordinates of blob centers
         if displayImage: dispImages.append(imageWithPoints(blobCenters, 120, 160)) # And append them to an image
@@ -152,6 +156,7 @@ class visualAlgorithm:
         dispImages = []
         # Minimum distance between peaks in input image brightness. Peaks closer than this value will not be detected.
         peakMinDistance = 5
+        maxPeakNum      = 15
 
         if implType == ImplementationType.IMPL_SOFTWARE:
             peakCoordinates = peak_local_max(img, min_distance=peakMinDistance, threshold_abs=120)
@@ -159,9 +164,14 @@ class visualAlgorithm:
             peakCoordinates = hardwarePeakMax(img, 120, peakMinDistance)
 
         if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
-        if peakCoordinates.shape[0] < 4:
+        if peakCoordinates.shape[0] < 4 or peakCoordinates.shape[0] > maxPeakNum:
             return (marker2Dpoints, algSuccess, dispImages)
-
+        
+        peakCoordinates = np.array(((117, 58),
+                                    (118, 58),
+                                    (71, 61),
+                                    (110, 78),
+                                    (82, 88)))
         ################################### FIND MARKER BLOBS ###############################
         marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
         if markerFindSuccess: algSuccess = True
@@ -208,6 +218,7 @@ class visualAlgorithm:
         """
         arLoBound = 8 # Value found based on simulation with test images
         arHiBound = (int)(2.0 * expectArea)
+        deletedBlobsIm = []
 
         removeIndexes = []
         for i in range(len(areas)):
@@ -226,7 +237,8 @@ class visualAlgorithm:
                     if (deletedBlobsIm[x][y]) in removeIndexes:
                         deletedBlobsIm[x][y] = 0
             return rmAreas, rmBboxes, deletedBlobsIm
-        else: return rmAreas, rmBboxes
+        else: 
+            return rmAreas, rmBboxes, deletedBlobsIm
 
     def _getBlobCenterCoords(self, bboxes):
         """
@@ -303,6 +315,13 @@ class visualAlgorithm:
         pointTriplets = pointTriplets.astype(int)
         otherPoints = otherPoints.astype(int)
         
+        #for i in range(tripletNum):
+        #    tmp_string = f"Triplet {i} ({pointTriplets[i,0]}, {pointTriplets[i,1]}, {pointTriplets[i,2]}) Other points ("
+        #    for j in range(blobNum-3):
+        #        tmp_string += f"{otherPoints[i,j]}, "
+        #    tmp_string += ")"
+        #    print(tmp_string)
+
         # Calculate predicted placement of fourth point
         expectedP3 = np.zeros((tripletNum, 2))
         distanceErr = np.zeros((tripletNum, otherPoints.shape[1]))
@@ -325,6 +344,10 @@ class visualAlgorithm:
                 pb = tmpCenters[otherPoints[i,j],:]
                 distanceErr[i,j] = math.sqrt((pa[0]-pb[0])**2 + (pa[1]-pb[1])**2)
 
+            #minDist = np.min(distanceErr)
+            #tmp_string =  f"Triplet {i} Vectors ({v0[1]}, {v0[0]}, {v1[1]}, {v1[0]}) Prediction ({expectedP3[i, 1]}, {expectedP3[i, 0]}) Cross {tmp}, Min dist {minDist}"
+            #print(tmp_string)
+
         # TODO: add selection based on absolute value of min error and return if it is too big
         # Find the indices of all occurrences of the minimum value
         if np.min(distanceErr) < fourthBlobMaxDistanceError:
@@ -332,6 +355,7 @@ class visualAlgorithm:
             success = True
         else:
             return markerPoints.astype(int), im, success
+
 
         # Perform final selection of marker points
         for i in range(indices.shape[0]):

@@ -48,6 +48,19 @@ int findMarkerPoints(point_t *input_points, int blobNum, point_t *output_points)
         }
     }
 
+    #ifdef DEBUG
+        for (int i = 0; i < tripletNum; i++)
+        {
+            std::cout << "Triplet " << i << " ";
+            std::cout << "(" << pointTriplets[i][0] << ", " << pointTriplets[i][1] << ", " << pointTriplets[i][2] << ") ";
+            std::cout << "Other points ";
+            std::cout << "(";
+            for (int j = 0; j < blobNum-3; j++)
+                std::cout << otherPoints[i][j] << ", ";
+            std::cout << ")" << std::endl;
+        }
+    #endif
+
     float minDistance = std::numeric_limits<float>::max();
     int bestTripletIndex = -1;
     int bestOtherIndex = -1;
@@ -58,11 +71,6 @@ int findMarkerPoints(point_t *input_points, int blobNum, point_t *output_points)
         const point_t& p1 = input_points[pointTriplets[i][1]];
         const point_t& p2 = input_points[pointTriplets[i][2]];
 
-        if (i == 90) 
-        {
-            int x = 4;
-        }
-
         float v0x = static_cast<float>(p1.x - p0.x);
         float v0y = static_cast<float>(p1.y - p0.y);
         float v1x = static_cast<float>(p2.x - p1.x);
@@ -71,7 +79,15 @@ int findMarkerPoints(point_t *input_points, int blobNum, point_t *output_points)
         float predX = static_cast<float>(p0.x) + 0.5f * (v1x - v0x);
         float predY = static_cast<float>(p0.y) + 0.5f * (v1y - v0y);
 
-        float cross = v0x * v1y - v0y * v1x;
+        float cross = v0y * v1x - v0x * v1y;
+
+        #ifdef DEBUG
+            std::cout << "Triplet " << i << " ";
+            std::cout << "Vectors (" << v0x << ", " << v0y << ", " << v1x << ", " << v1y << ") ";
+            std::cout << "Prediction (" << predX << ", " << predY << ") ";
+            std::cout << "Cross " << cross << ", ";
+            std::cout << "Min dist " << minDistance << std::endl;
+        #endif
         if (cross <= 0.0f)
             continue;  // Discard mirrored marker
 

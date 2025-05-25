@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from ImageRecognitionDataset import *
 
 # UART Config
-COM_PORT = 'COM1'
+COM_PORT = 'COM8'
 BAUD_RATE = 115200
 
 # Set up logging
@@ -31,10 +31,15 @@ image_base_dir = os.path.normpath(image_base_dir)
 dataset = ImageRecognitionDataset(csv_file, image_base_dir)                  # Create dataset
 dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=4) # Create DataLoader
 
-
-visualAlg = visualAlgorithm(algType=AlgorithmType.ALGORITHM_PEAK, implType=ImplementationType.IMPL_SOFTWARE) # Configure algorithm
+visualAlg = visualAlgorithm(algType=AlgorithmType.ALGORITHM_PEAK, implType=ImplementationType.IMPL_HARDWARE) # Configure algorithm
 
 output_csv_filename = create_output_csv(base_dir=r".\test_output")
+
+true_positive = 0
+true_negative = 0
+false_positive = 0
+false_negative = 0
+total = int(len(dataset))
 
 # Main testing loop
 with open(output_csv_filename, 'a', newline='') as csvfile:
@@ -42,8 +47,11 @@ with open(output_csv_filename, 'a', newline='') as csvfile:
 
         # Optional: limit max threads if needed
     with ThreadPoolExecutor(max_workers=2) as executor:
-        for i in range(len(dataset)):
+        for i in range(5, len(dataset)):
             print(i)
+            if (i% 25 == 0):
+                print(f"{i}/{total}")
+
             img, has_marker, img_points = dataset[i]
 
             # Submit both functions to the thread pool
@@ -69,9 +77,23 @@ with open(output_csv_filename, 'a', newline='') as csvfile:
             #row += hw_points.flatten().tolist()
             #row += [hw_time, hw_current, hw_temp]
 
+            if (has_marker == 1 and sw_success == 1): 
+                true_positive += 1
+            elif (has_marker == 1 and sw_success == 0):
+                false_negative += 1
+            elif (has_marker == 0 and sw_success == 1):
+                false_positive += 1
+            elif (has_marker == 0 and sw_success == 0):
+                true_negative += 1
+
             writer.writerow(row)
 
+
 print(f"Processing completed. Results saved in: {output_csv_filename}")
+print(f"True positive:  {true_positive/total}")
+print(f"True negative:  {true_negative/total}")
+print(f"False positive: {false_positive/total}")
+print(f"Fakse negative: {false_negative/total}")
 
 
 
@@ -83,6 +105,15 @@ print(f"Processing completed. Results saved in: {output_csv_filename}")
 
 
 
+
+# peakCoordinates = np.array(((117, 58),
+#                                     (118, 58),
+#                                     (71, 61),
+#                                     (110, 78),
+#                                     (82, 88),
+#                                     (83, 88)))
+# 
+# marker2Dpoints, noisePointsIm, markerFindSuccess = visualAlg._findMarkerPoints(peakCoordinates)
 
 ########################## OLD IMAGE LOADING ##########################
 # #usedMarkerType = "A"

@@ -5,7 +5,11 @@
 #include <limits>
 #include <array>
 
-#define blobNumber   8
+#include <iostream>
+
+#define DEBUG
+
+#define blobNumber   6
 
 typedef struct{
     int x;
