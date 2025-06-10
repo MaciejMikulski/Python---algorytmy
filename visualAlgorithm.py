@@ -45,7 +45,9 @@ class visualAlgorithm:
         
         ################################### PERSPECTIVE-N-POINT ###############################
         f = 0.05 / 12e-6 # Convert focal length to pixel uints
-        cameraMatrix = np.array(([f, 0, 0], [0, f, 0], [0, 0, 1]), dtype=np.float32)
+        uc = 80.0
+        vc = 60.0
+        cameraMatrix = np.array(([f, 0, uc], [0, f, vc], [0, 0, 1]), dtype=np.float32)
         marker3Dpoints = np.array(([2, 0, 0], [0, -2, 0], [-2, 0, 0], [2, 2, 0]), dtype=np.float32)
         (success, rotationVectorPnP, translationVector) = cv2.solvePnP(marker3Dpoints, marker2DPoints.astype(np.float32), cameraMatrix, None)
         if not success:
@@ -166,12 +168,7 @@ class visualAlgorithm:
         if displayImage: dispImages.append(imageWithPoints(peakCoordinates, 120, 160))
         if peakCoordinates.shape[0] < 4 or peakCoordinates.shape[0] > maxPeakNum:
             return (marker2Dpoints, algSuccess, dispImages)
-        
-        peakCoordinates = np.array(((117, 58),
-                                    (118, 58),
-                                    (71, 61),
-                                    (110, 78),
-                                    (82, 88)))
+
         ################################### FIND MARKER BLOBS ###############################
         marker2Dpoints, noisePointsIm, markerFindSuccess = self._findMarkerPoints(peakCoordinates) # Find which blobs belong to marker (if any).
         if markerFindSuccess: algSuccess = True
@@ -314,13 +311,6 @@ class visualAlgorithm:
                         cnt += 1
         pointTriplets = pointTriplets.astype(int)
         otherPoints = otherPoints.astype(int)
-        
-        #for i in range(tripletNum):
-        #    tmp_string = f"Triplet {i} ({pointTriplets[i,0]}, {pointTriplets[i,1]}, {pointTriplets[i,2]}) Other points ("
-        #    for j in range(blobNum-3):
-        #        tmp_string += f"{otherPoints[i,j]}, "
-        #    tmp_string += ")"
-        #    print(tmp_string)
 
         # Calculate predicted placement of fourth point
         expectedP3 = np.zeros((tripletNum, 2))
@@ -343,10 +333,6 @@ class visualAlgorithm:
                 pa = expectedP3[i,:]
                 pb = tmpCenters[otherPoints[i,j],:]
                 distanceErr[i,j] = math.sqrt((pa[0]-pb[0])**2 + (pa[1]-pb[1])**2)
-
-            #minDist = np.min(distanceErr)
-            #tmp_string =  f"Triplet {i} Vectors ({v0[1]}, {v0[0]}, {v1[1]}, {v1[0]}) Prediction ({expectedP3[i, 1]}, {expectedP3[i, 0]}) Cross {tmp}, Min dist {minDist}"
-            #print(tmp_string)
 
         # TODO: add selection based on absolute value of min error and return if it is too big
         # Find the indices of all occurrences of the minimum value
