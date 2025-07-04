@@ -146,7 +146,9 @@ def receive_hardware_results(ser: serial.Serial) -> tuple:
     Receives the result frame from the hardware and parses the data.
     After receiving, sends ACK frame to hardware and returns the parsed results.
     """
-    expected_length = 130
+    # expected_length = 130
+    # expected_length = 82
+    expected_length = 86
     raw = ser.read(expected_length)
     lenght = len(raw)
     if lenght != expected_length:
@@ -158,35 +160,47 @@ def receive_hardware_results(ser: serial.Serial) -> tuple:
         return default_response()
 
     # Validate CRC
-    payload_with_header = raw[:127]  # up to and including payload
+    # payload_with_header = raw[:127]  # up to and including payload
+    payload_with_header = raw[:83]  # up to and including payload
     expected_crc = calculate_crc16(payload_with_header)
-    received_crc = struct.unpack('<H', raw[127:129])[0]
+    received_crc = struct.unpack('<H', raw[83:85])[0]
 
     if expected_crc != received_crc:
         logging.error(f"CRC mismatch in result frame. Expected {expected_crc:04X}, got {received_crc:04X}")
         return default_response()
 
     # Parse payload
-    payload = raw[2:127]  # Skip header and frame ID
+    payload = raw[2:83]  # Skip header and frame ID
 
     # Unpack: 9d, 3d, B, 8H, I, f, f
-    fmt = '<9d3dB8HIff'
+    #fmt = '<9d3dB8HIff'
+    fmt = '<3d3dB8H3If'
     unpacked = struct.unpack(fmt, payload)
 
-    R_vals = unpacked[0:9]
-    t_vals = unpacked[9:12]
-    success_flag = unpacked[12]
-    points_vals = unpacked[13:21]
-    time_val = unpacked[21]
-    current_val = unpacked[22]
-    temp_val = unpacked[23]
+    R_vals = unpacked[0:3]
+    t_vals = unpacked[3:6]
+    success_flag = unpacked[6]
+    points_vals = unpacked[7:15]
+    hw_time_val = unpacked[15]
+    total_time_val = unpacked[16]
+    found_peak_num_val = unpacked[17]
+    temp_val = unpacked[18]
 
-    R = np.array(R_vals, dtype=np.float64).reshape((3, 3))
-    t = np.array(t_vals, dtype=np.float64).reshape((1, 3))
+    #R_vals = unpacked[0:9]
+    #t_vals = unpacked[9:12]
+    #success_flag = unpacked[12]
+    #points_vals = unpacked[13:21]
+    #time_val = unpacked[21]
+    #current_val = unpacked[22]
+    #temp_val = unpacked[23]
+
+    R = np.array(R_vals, dtype=np.float64).reshape((3,))
+    t = np.array(t_vals, dtype=np.float64).reshape((3,))
     success = bool(success_flag)
     points = np.array(points_vals, dtype=np.uint16).reshape((4, 2))
-    time = np.uint32(time_val)
-    current = float(current_val)
+    hw_time = np.uint32(hw_time_val)
+    total_time = np.uint32(total_time_val)
+    found_peak_num = float(found_peak_num_val)
     temp = float(temp_val)
 
     logging.info("Hardware result frame successfully received and parsed.")
@@ -194,13 +208,13 @@ def receive_hardware_results(ser: serial.Serial) -> tuple:
     # Send ACK frame
     send_cmd_frame(ser, ID_ACK)
 
-    return R, t, success, points, time, current, temp
+    return R, t, success, points, hw_time, total_time, found_peak_num, temp
 
 def default_response():
     """
     Returns default response in case of errors or failure.
     """
-    return np.zeros((3, 3)), np.zeros((1, 3)), False, np.zeros((4, 2), dtype=np.uint16), 0, 0.0, 0.0
+    return np.zeros((3,)), np.zeros((1, 3)), False, np.zeros((4, 2), dtype=np.uint16), 0, 0, 0, 0.0
 
 def send_to_hardware(img, com_port, baud_rate, max_retries=3):
     """

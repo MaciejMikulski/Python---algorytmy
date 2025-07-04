@@ -16,7 +16,7 @@ from ImageRecognitionDataset import *
 
 # UART Config
 COM_PORT = 'COM8'
-BAUD_RATE = 230400
+BAUD_RATE = 115200
 
 # Set up logging
 log_filename = datetime.now().strftime("logs/log_%Y%m%d_%H%M%S.txt")
@@ -32,7 +32,7 @@ image_base_dir = os.path.normpath(image_base_dir)
 dataset = ImageRecognitionDataset(csv_file, image_base_dir)                  # Create dataset
 dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=4) # Create DataLoader
 
-visualAlg = visualAlgorithm(algType=AlgorithmType.ALGORITHM_PEAK, implType=ImplementationType.IMPL_HARDWARE) # Configure algorithm
+visualAlg = visualAlgorithm(algType=AlgorithmType.ALGORITHM_BLOB, implType=ImplementationType.IMPL_SOFTWARE) # Configure algorithm
 
 output_csv_filename = create_output_csv(base_dir=r".\test_output")
 
@@ -48,25 +48,22 @@ with open(output_csv_filename, 'a', newline='') as csvfile:
 
         # Optional: limit max threads if needed
     with ThreadPoolExecutor(max_workers=2) as executor:
-        for i in range(0, len(dataset)):
-            print(i)
+        for i in range(0, total):
             if (i% 25 == 0):
                 print(f"{i}/{total}")
 
             img, has_marker, img_points = dataset[i]
             img = img.astype(np.uint16)
-            showImages([img])
             # Submit both functions to the thread pool
             future_sw = executor.submit(visualAlg.execute, img)
-            #future_hw = executor.submit(send_to_hardware, img, COM_PORT, BAUD_RATE)
+            future_hw = executor.submit(send_to_hardware, img, COM_PORT, BAUD_RATE)
 
             # Wait for results (these run in parallel)
             sw_R, sw_t, sw_success, sw_points = future_sw.result()
-            hw_R, hw_t, hw_success, hw_points, hw_time, hw_current, hw_temp = default_response()#future_hw.result()
+            hw_R, hw_t, hw_success, hw_points, hw_hw_time, hw_total_time, hw_found_peak_num, hw_temp = future_hw.result()
 
             row = [i]
             row += [has_marker]
-            row += img_points.flatten().tolist()
 
             row += [sw_success]
             row += sw_R.flatten().tolist()
@@ -77,7 +74,7 @@ with open(output_csv_filename, 'a', newline='') as csvfile:
             row += hw_R.flatten().tolist()
             row += hw_t.flatten().tolist()
             row += hw_points.flatten().tolist()
-            row += [hw_time, hw_current, hw_temp]
+            row += [hw_hw_time, hw_total_time, hw_found_peak_num, hw_temp]
 
             if (has_marker == 1 and sw_success == 1): 
                 true_positive += 1
@@ -96,9 +93,6 @@ print(f"True positive:  {true_positive/total}")
 print(f"True negative:  {true_negative/total}")
 print(f"False positive: {false_positive/total}")
 print(f"Fakse negative: {false_negative/total}")
-
-
-
 
 
 

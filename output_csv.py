@@ -22,18 +22,19 @@ def create_output_csv(base_dir: str = ".", prefix: str = "processing_results") -
     # Prepare CSV header
     header = ['image_index']
     header += ['has_marker']
-    header += [f'gt_point_{k}_{coord}' for k in range(4) for coord in ['x', 'y']]
 
     header += ['sw_success']
-    header += [f'sw_R_{i}{j}' for i in range(3) for j in range(3)]
+    #header += [f'sw_R_{i}{j}' for i in range(3) for j in range(3)]
+    header += [f'sw_R_{i}' for i in range(3)]
     header += [f'sw_t_{j}' for j in range(3)]
     header += [f'sw_point_{k}_{coord}' for k in range(4) for coord in ['x', 'y']]
 
     header += ['hw_success']
-    header += [f'hw_R_{i}{j}' for i in range(3) for j in range(3)]
+    #header += [f'hw_R_{i}{j}' for i in range(3) for j in range(3)]
+    header += [f'hw_R_{i}' for i in range(3)]
     header += [f'hw_t_{j}' for j in range(3)]
     header += [f'hw_point_{k}_{coord}' for k in range(4) for coord in ['x', 'y']]
-    header += ['hw_time', 'hw_current', 'hw_temp']
+    header += ['hw_hw_time', 'hw_total_time', 'hw_found_peak_num', 'hw_temp']
 
     # Write header to CSV
     with open(filepath, 'w', newline='') as csvfile:

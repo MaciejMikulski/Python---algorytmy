@@ -97,11 +97,13 @@ class visualAlgorithm:
         dispImages = []
         # Number of brightest pixels in the image that shall be considered as part of the marker
         # Found in simulation on test images.
-        area = 380 
+        brightes_pix_num = 380 
+        low_area = 4
+        hi_area = 150
         maxBlobNum = 15
 
         ####################################### THRESHOLDING ############################################
-        binaryIm = thresholdCumulativeHistogramArea(img, area, 0)
+        binaryIm = thresholdCumulativeHistogramArea(img, brightes_pix_num, 0)
         if displayImage: dispImages.append(binaryIm)
         ############################### CONNECTED COMPONENT LABELING ########################################
         # TODO: Add hardware prototype for blob detection
@@ -110,7 +112,7 @@ class visualAlgorithm:
         if blobNum < 4:
             return (marker2Dpoints, algSuccess, dispImages)
         ########################################## AREA FILTRATION #################################################
-        blobArea, blobBoundBox, delBlobsIm = self._removeBlobsArea(labelIm, blobArea, boundingBox, area, displayImage) # Remove blobs that are too small or too big
+        blobArea, blobBoundBox, delBlobsIm = self._removeBlobsArea(labelIm, blobArea, boundingBox, low_area, hi_area, displayImage) # Remove blobs that are too small or too big
         if displayImage: dispImages.append(delBlobsIm)
         if blobArea.shape[0] < 4 or blobArea.shape[0] > maxBlobNum:
             return (marker2Dpoints, algSuccess, dispImages)
@@ -189,7 +191,7 @@ class visualAlgorithm:
             boundingBox[i,:] = np.array(blobProperties[i].bbox)
         return blobNum, blobArea, boundingBox, labelIm
 
-    def _removeBlobsArea(self, img, areas, bboxes, expectArea, dispIm=False):
+    def _removeBlobsArea(self, img, areas, bboxes, lowArea, hiArea, dispIm=False):
         """
         This method removes blobs on the image that have area smaller or bigger than specified.
         It also removes corresponding data in area an bounding box arrays.
@@ -202,7 +204,9 @@ class visualAlgorithm:
         
         bboxes : ndarray
         
-        expectArea : int
+        lowArea : int
+
+        hiArea : int
 
         Returns
         ----------
@@ -213,8 +217,8 @@ class visualAlgorithm:
         rmBboxes : ndarray
             List of blob bounding boxes with removed elements corresponding to deleted blobs.
         """
-        arLoBound = 8 # Value found based on simulation with test images
-        arHiBound = (int)(2.0 * expectArea)
+        arLoBound = lowArea # Value found based on simulation with test images
+        arHiBound = hiArea
         deletedBlobsIm = []
 
         removeIndexes = []
